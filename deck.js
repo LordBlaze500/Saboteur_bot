@@ -549,21 +549,21 @@ const deck = [
 	// 	type: 16,
 	// 	special: 'map'
 	// },
-	// {
-	// 	id: 46,
-	// 	type: 17,
-	// 	special: 'rockfall'
-	// },
-	// {
-	// 	id: 47,
-	// 	type: 17,
-	// 	special: 'rockfall'
-	// },
-	// {
-	// 	id: 48,
-	// 	type: 17,
-	// 	special: 'rockfall'
-	// },
+	{
+		id: 46,
+		type: 17,
+		special: 'rockfall'
+	},
+	{
+		id: 47,
+		type: 17,
+		special: 'rockfall'
+	},
+	{
+		id: 48,
+		type: 17,
+		special: 'rockfall'
+	},
 	// {
 	// 	id: 49,
 	// 	type: 18,
