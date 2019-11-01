@@ -1,4 +1,8 @@
+FIXES
+ - if no coals discovered, add two possibilities to consider when reaching coal
+
 NON-FEATURE TODOS
+ - type -> cardType
  - remove "special" field
  - extract repeating code parts to functions
  - refactor deck.js to create same type cards via spread operator

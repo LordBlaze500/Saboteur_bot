@@ -272,14 +272,14 @@ const checkTargets = (board, i, j, withoutGold) => {
     graphBoard(board);
     diggersVictory();
   }
-  if (coalOne.accessible === true && coalOne.type < 0) {
+  if (coalOne.accessible === true && coalOne.cardType < 0) {
     if (i < targets[1] || j < 10) {
       buildCard(board, {...deck[36]}, targets[1], 10, false);
     } else {
       buildCard(board, flipCard({...deck[36]}), targets[1], 10, true);
     }
   }
-  if (coalTwo.accessible === true && coalTwo.type < 0) {
+  if (coalTwo.accessible === true && coalTwo.cardType < 0) {
     if (i < targets[2] || j > 10) {
       buildCard(board, {...deck[25]}, targets[2], 10, false);
     } else {
@@ -421,6 +421,7 @@ const calculateMove = (cardsInHand, isSaboteur, board, propabilities, knowledge)
                 board: clone,
                 flipped: false,
                 operation: 'build',
+                cardType: cardsInHand[a].type,
                 i,
                 j,
               })
@@ -442,6 +443,7 @@ const calculateMove = (cardsInHand, isSaboteur, board, propabilities, knowledge)
                   cardIndex: a,
                   flipped: true,
                   board: clone,
+                  cardType: cardsInHand[a].type,
                   operation: 'build',
                   i,
                   j,
@@ -549,6 +551,20 @@ const getClaimsArray = (playersNo) => {
   return claims;
 }
 
+const initiateKarmas = (playersNo, isSaboteur, maxSaboteurs, playerIndex) => {
+  const selfKarma = isSaboteur ? 100 : 0
+  let valueToSplit = maxSaboteurs * 100 - selfKarma;
+  let karmasArray = [];
+  karmasArray.length = playersNo;
+  karmasArray[playerIndex] = selfKarma
+  for (let i = 0; i < playersNo; ++i) {
+    if (i !== playerIndex) {
+      karmasArray[i] = Math.floor(valueToSplit / (playersNo - 1));
+    }
+  }
+  return karmasArray;
+}
+
 module.exports = { 
   boardPiece, 
   cloneBoard, 
@@ -572,5 +588,6 @@ module.exports = {
   addKnowledge,
   useMap,
   calculateTargetsPropabilities,
+  initiateKarmas,
   targets,
 }
