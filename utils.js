@@ -288,6 +288,63 @@ const checkTargets = (board, i, j, withoutGold) => {
   }
 }
 
+const isGoldKnown = (knowledge) => {
+  const stringArray = JSON.stringify(knowledge);
+  if (stringArray === JSON.stringify([-1,1,-1])) {
+    return true;
+  }
+  if (stringArray === JSON.stringify([1,-1,-1])) {
+    return true;
+  }
+  if (stringArray === JSON.stringify([-1,-1,1])) {
+    return true;
+  }
+  return false;
+}
+
+const addKnowledge = (knowledge, target, value) => {
+  if (target === 0 && value === 1) {
+    knowledge = [1,-1,-1];
+  }
+  if (target === 1 && value === 1) {
+    knowledge = [-1,1,-1];
+  }
+  if (target === 2 && value === 1) {
+    knowledge = [-1,-1,1];
+  }
+  if (target === 0 && value === -1) {
+    knowledge[0] = -1;
+  }
+  if (target === 1 && value === -1) {
+    knowledge[1] = -1;
+  }
+  if (target === 2 && value === -1) {
+    knowledge[2] = -1;
+  }
+
+  if (JSON.stringify(knowledge) === JSON.stringify([-1,-1,0])) {
+    knowledge = [-1, -1, 1];
+  }
+  if (JSON.stringify(knowledge) === JSON.stringify([-1,0,-1])) {
+    knowledge = [-1, 1, -1];
+  }
+  if (JSON.stringify(knowledge) === JSON.stringify([0,-1,-1])) {
+    knowledge = [1, -1, -1];
+  }
+  return knowledge;
+}
+
+const useMap = (board, knowledge) => {
+  if (knowledge[1] === 0) {
+    knowledge = addKnowledge(knowledge, 1, board[5][10].special === 'gold' ? 1 : -1);
+  } else if (knowledge[0] === 0) {
+    knowledge = addKnowledge(knowledge, 0, board[3][10].special === 'gold' ? 1 : -1);
+  } else {
+    knowledge = addKnowledge(knowledge, 2, board[7][10].special === 'gold' ? 1 : -1);
+  }
+  return knowledge;
+}
+
 const calculateTargetsPropabilities = (knowledge) => { //, claims, karmas) => {
   const sum = knowledge.reduce((a, b) => a + b, 0);
   if (sum === 0) {
@@ -313,7 +370,7 @@ const calculateTargetsPropabilities = (knowledge) => { //, claims, karmas) => {
   }
 }
 
-const calculateMove = (cardsInHand, isSaboteur, board, propabilities) => {
+const calculateMove = (cardsInHand, isSaboteur, board, propabilities, knowledge) => {
   let outcomes = [];
   let clone;
   let value;
@@ -325,35 +382,32 @@ const calculateMove = (cardsInHand, isSaboteur, board, propabilities) => {
   let cardOutcomes = [];
   for (let a = 0; a < cardsInHand.length; ++a) {
     cardOutcomes = [];
-    flipped = cardsInHand[a].flippable ? flipCard({...cardsInHand[a]}) : null;
-    for (let i = 0; i < board.length; ++i) {
-      for (let j = 0; j < board[i].length; ++j) {
-        if (cardsInHand[a].type <= 15) {
-          if (canCardBeBuilt(board, cardsInHand[a], i, j, isSaboteur)) {
-            clone = cloneBoard(board);
-            buildCard(clone, cardsInHand[a], i, j, false);
-            checkTargets(clone, i, j, true);
-            if (isGoldRevealed(clone)) {
-              value = 0
-            } else {
-              value = evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb);
-              // value = evaluateBoard(clone, 0.333, 0.333, 0.333);
-            }
-            cardOutcomes.push({
-              value,
-              cardIndex: a,
-              board: clone,
-              flipped: false,
-              operation: 'build',
-              i,
-              j,
-            })
-          }
 
-          if (flipped) {
-            if (canCardBeBuilt(board, flipped, i, j, isSaboteur)) {
+    if (cardsInHand[a].special === 'map') {
+      if (isGoldKnown(knowledge)) {
+        outcomes.push({
+          value: isSaboteur ? currentEvaluation + 0.01 : currentEvaluation - 0.01,
+          board,
+          cardIndex: a,
+          operation: 'throwaway',
+        })
+      } else {
+        outcomes.push({
+          value: isSaboteur ? 9999 : -9999,
+          board,
+          cardIndex: a,
+          operation: 'map',
+          knowledge: useMap(board, [...knowledge])
+        })
+      }
+    } else {
+      flipped = cardsInHand[a].flippable ? flipCard({...cardsInHand[a]}) : null;
+      for (let i = 0; i < board.length; ++i) {
+        for (let j = 0; j < board[i].length; ++j) {
+          if (cardsInHand[a].type <= 15) {
+            if (canCardBeBuilt(board, cardsInHand[a], i, j, isSaboteur)) {
               clone = cloneBoard(board);
-              buildCard(clone, flipped, i, j, true);
+              buildCard(clone, cardsInHand[a], i, j, false);
               checkTargets(clone, i, j, true);
               if (isGoldRevealed(clone)) {
                 value = 0
@@ -364,41 +418,64 @@ const calculateMove = (cardsInHand, isSaboteur, board, propabilities) => {
               cardOutcomes.push({
                 value,
                 cardIndex: a,
-                flipped: true,
                 board: clone,
+                flipped: false,
                 operation: 'build',
                 i,
                 j,
               })
             }
+
+            if (flipped) {
+              if (canCardBeBuilt(board, flipped, i, j, isSaboteur)) {
+                clone = cloneBoard(board);
+                buildCard(clone, flipped, i, j, true);
+                checkTargets(clone, i, j, true);
+                if (isGoldRevealed(clone)) {
+                  value = 0
+                } else {
+                  value = evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb);
+                  // value = evaluateBoard(clone, 0.333, 0.333, 0.333);
+                }
+                cardOutcomes.push({
+                  value,
+                  cardIndex: a,
+                  flipped: true,
+                  board: clone,
+                  operation: 'build',
+                  i,
+                  j,
+                })
+              }
+            }
+          } else if (cardsInHand[a].type === 17 && !(j === 10 && i === targets[1]) && !(j === 10 && i === targets[2]) && board[i][j].type >= 0 && board[i][j].type <= 15) {
+            clone = cloneBoard(board);
+            doRockFall(clone, i, j);
+            outcomes.push({
+              value: evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb),
+              cardIndex: a,
+              board: clone,
+              operation: 'rockfall',
+            })
           }
-        } else if (cardsInHand[a].type === 17 && !(j === 10 && i === targets[1]) && !(j === 10 && i === targets[2]) && board[i][j].type >= 0 && board[i][j].type <= 15) {
-          clone = cloneBoard(board);
-          doRockFall(clone, i, j);
-          outcomes.push({
-            value: evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb),
-            cardIndex: a,
-            board: clone,
-            operation: 'rockfall',
-          })
         }
       }
-    }
 
-    if (cardOutcomes.length > 0) {
-      const usefulMoveIndx = cardOutcomes.findIndex((el) => {
-        return isSaboteur ? (el.value > currentEvaluation) : (el.value < currentEvaluation);
-      })
-
-      if (usefulMoveIndx !== -1) {
-        outcomes = [...outcomes, ...cardOutcomes];
-      } else {
-        outcomes.push({
-          value: isSaboteur ? currentEvaluation + 0.01 : currentEvaluation - 0.01,
-          board,
-          cardIndex: a,
-          operation: 'throwaway',
+      if (cardOutcomes.length > 0) {
+        const usefulMoveIndx = cardOutcomes.findIndex((el) => {
+          return isSaboteur ? (el.value > currentEvaluation) : (el.value < currentEvaluation);
         })
+
+        if (usefulMoveIndx !== -1) {
+          outcomes = [...outcomes, ...cardOutcomes];
+        } else {
+          outcomes.push({
+            value: isSaboteur ? currentEvaluation + 0.01 : currentEvaluation - 0.01,
+            board,
+            cardIndex: a,
+            operation: 'throwaway',
+          })
+        }
       }
     }
   }
@@ -491,6 +568,9 @@ module.exports = {
   evaluateBoard,
   getDistanceToTarget,
   getClaimsArray,
+  isGoldKnown,
+  addKnowledge,
+  useMap,
   calculateTargetsPropabilities,
   targets,
 }

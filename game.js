@@ -20,6 +20,9 @@ const {
   evaluateBoard,
   getDistanceToTarget,
   getClaimsArray,
+  isGoldKnown,
+  addKnowledge,
+  useMap,
   calculateTargetsPropabilities,
   targets,
 } = require('./utils');
@@ -59,102 +62,39 @@ if (targets[0] === 7) {
   console.log('GOLD BOTTOM');
 }
 
-const isGoldKnown = (knowledge) => {
-  const stringArray = JSON.stringify(knowledge);
-  if (stringArray === JSON.stringify([-1,1,-1])) {
-    return true;
-  }
-  if (stringArray === JSON.stringify([1,-1,-1])) {
-    return true;
-  }
-  if (stringArray === JSON.stringify([-1,-1,1])) {
-    return true;
-  }
-  return false;
-}
-
-const addKnowledge = (knowledge, target, value) => {
-  if (target === 0 && value === 1) {
-    knowledge = [1,-1,-1];
-  }
-  if (target === 1 && value === 1) {
-    knowledge = [-1,1,-1];
-  }
-  if (target === 2 && value === 1) {
-    knowledge = [-1,-1,1];
-  }
-  if (target === 0 && value === -1) {
-    knowledge[0] = -1;
-  }
-  if (target === 1 && value === -1) {
-    knowledge[1] = -1;
-  }
-  if (target === 2 && value === -1) {
-    knowledge[2] = -1;
-  }
-
-  if (JSON.stringify(knowledge) === JSON.stringify([-1,-1,0])) {
-    knowledge = [-1, -1, 1];
-  }
-  if (JSON.stringify(knowledge) === JSON.stringify([-1,0,-1])) {
-    knowledge = [-1, 1, -1];
-  }
-  if (JSON.stringify(knowledge) === JSON.stringify([0,-1,-1])) {
-    knowledge = [1, -1, -1];
-  }
-  return knowledge;
-}
-
-const useMap = (board, knowledge) => {
-  if (knowledge[1] === 0) {
-    knowledge = addKnowledge(knowledge, 1, board[5][10].special === 'gold' ? 1 : -1);
-  } else if (knowledge[0] === 0) {
-    knowledge = addKnowledge(knowledge, 0, board[3][10].special === 'gold' ? 1 : -1);
-  } else {
-    knowledge = addKnowledge(knowledge, 2, board[7][10].special === 'gold' ? 1 : -1);
-  }
-  return knowledge;
-}
-
 let move = null;
-let mapIndex = null;
+let saboteurNo = 1;
+let diggerNo = 1;
 
 while (playersData[playersNo - 1].cards.length > 0) {
   console.log('TURN ' + turnNo++);
+  saboteurNo = 1;
+  diggerNo = 1;
   for (let i = 0; i < playersNo; ++i) {
-    console.log(playersData[i].role === 1 ? 'Saboteur' : 'Digger');
+    console.log(playersData[i].role === 1 ? 'Saboteur ' + saboteurNo++  : 'Digger ' + diggerNo++);
 
-    mapIndex = playersData[i].cards.findIndex((el) => el.special === 'map');
-    if (mapIndex !== -1) {
-
-      if (isGoldKnown(playersData[i].targetsKnowledge)) {
-        console.log('THROWAWAY (map)');
-        move = {
-          cardIndex: mapIndex,
-        };
-      } else {
-        console.log('USE MAP');
-        console.log(playersData[i].targetsKnowledge);
-        playersData[i].targetsKnowledge = useMap(board, playersData[i].targetsKnowledge);
-        console.log(playersData[i].targetsKnowledge);
-        move = {
-          cardIndex: mapIndex,
-        };
-      }
-    } else {
-      move = calculateMove(playersData[i].cards, playersData[i].role === 1, board, calculateTargetsPropabilities(playersData[i].targetsKnowledge));
-      if (move.operation === 'build') {
-        console.log('BUILD');
-        board = cloneBoard(move.board);
-      } else if (move.operation === 'rockfall') {
-        console.log('ROCKFALL');
-        board = cloneBoard(move.board);
-      } else if (move.operation === 'throwaway') {
-        console.log('THROWAWAY');
-      }
-
-      checkTargets(board, move.i, move.j);
+    move = calculateMove(
+      playersData[i].cards, 
+      playersData[i].role === 1,
+      board,
+      calculateTargetsPropabilities(playersData[i].targetsKnowledge),
+      playersData[i].targetsKnowledge
+    );
+    if (move.operation === 'build') {
+      console.log('BUILD');
+      board = cloneBoard(move.board);
+    } else if (move.operation === 'rockfall') {
+      console.log('ROCKFALL');
+      board = cloneBoard(move.board);
+    } else if (move.operation === 'throwaway') {
+      console.log('THROWAWAY');
+    } else if (move.operation === 'map') {
+      console.log('MAP');
+      playersData[i].targetsKnowledge = move.knowledge;
+      console.log(playersData[i].targetsKnowledge);
     }
+
+    checkTargets(board, move.i, move.j);
     
     graphBoard(board);
 
