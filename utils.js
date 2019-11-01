@@ -181,7 +181,7 @@ const flipCard = (card) => {
   return card;
 }
 
-const targets = [3,5,7];//shuffle([3,5,7]);
+const targets = shuffle([3,5,7]);
 
 const prepareBoard = () => {
   let board = [];
@@ -288,12 +288,40 @@ const checkTargets = (board, i, j, withoutGold) => {
   }
 }
 
-const calculateMove = (cardsInHand, isSaboteur, board) => {
+const calculateTargetsPropabilities = (knowledge) => { //, claims, karmas) => {
+  const sum = knowledge.reduce((a, b) => a + b, 0);
+  if (sum === 0) {
+    return [0.333, 0.333, 0.333];
+  }
+  if (knowledge[0] === 1) {
+    return [1,0,0];
+  }
+  if (knowledge[1] === 1) {
+    return [0,1,0];
+  }
+  if (knowledge[2] === 1) {
+    return [0,0,1];
+  }
+  if (knowledge[0] === -1) {
+    return [0, 0.5, 0.5];
+  }
+  if (knowledge[1] === -1) {
+    return [0.5, 0, 0.5];
+  }
+  if (knowledge[2] === -1) {
+    return [0.5, 0.5, 0];
+  }
+}
+
+const calculateMove = (cardsInHand, isSaboteur, board, propabilities) => {
   let outcomes = [];
   let clone;
   let value;
   let flipped;
-  let currentEvaluation = evaluateBoard(board, 1, 0, 0);
+  const goldTopProb = propabilities[0];
+  const goldMiddleProb = propabilities[1];
+  const goldBottomProb = propabilities[2];
+  let currentEvaluation = evaluateBoard(board, goldTopProb, goldMiddleProb, goldBottomProb);
   let cardOutcomes = [];
   for (let a = 0; a < cardsInHand.length; ++a) {
     cardOutcomes = [];
@@ -308,7 +336,7 @@ const calculateMove = (cardsInHand, isSaboteur, board) => {
             if (isGoldRevealed(clone)) {
               value = 0
             } else {
-              value = evaluateBoard(clone, 1, 0, 0);
+              value = evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb);
               // value = evaluateBoard(clone, 0.333, 0.333, 0.333);
             }
             cardOutcomes.push({
@@ -330,7 +358,7 @@ const calculateMove = (cardsInHand, isSaboteur, board) => {
               if (isGoldRevealed(clone)) {
                 value = 0
               } else {
-                value = evaluateBoard(clone, 1, 0, 0);
+                value = evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb);
                 // value = evaluateBoard(clone, 0.333, 0.333, 0.333);
               }
               cardOutcomes.push({
@@ -348,7 +376,7 @@ const calculateMove = (cardsInHand, isSaboteur, board) => {
           clone = cloneBoard(board);
           doRockFall(clone, i, j);
           outcomes.push({
-            value: evaluateBoard(clone, 1, 0, 0),
+            value: evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb),
             cardIndex: a,
             board: clone,
             operation: 'rockfall',
@@ -463,5 +491,6 @@ module.exports = {
   evaluateBoard,
   getDistanceToTarget,
   getClaimsArray,
+  calculateTargetsPropabilities,
   targets,
 }

@@ -519,36 +519,36 @@ const deck = [
 		outRight: false, 
 		flippable: true 
 	},
-	// {
-	// 	id: 40,
-	// 	type: 16,
-	// 	special: 'map'
-	// },
-	// {
-	// 	id: 41,
-	// 	type: 16,
-	// 	special: 'map'
-	// },
-	// {
-	// 	id: 42,
-	// 	type: 16,
-	// 	special: 'map'
-	// },
-	// {
-	// 	id: 43,
-	// 	type: 16,
-	// 	special: 'map'
-	// },
-	// {
-	// 	id: 44,
-	// 	type: 16,
-	// 	special: 'map'
-	// },
-	// {
-	// 	id: 45,
-	// 	type: 16,
-	// 	special: 'map'
-	// },
+	{
+		id: 40,
+		type: 16,
+		special: 'map'
+	},
+	{
+		id: 41,
+		type: 16,
+		special: 'map'
+	},
+	{
+		id: 42,
+		type: 16,
+		special: 'map'
+	},
+	{
+		id: 43,
+		type: 16,
+		special: 'map'
+	},
+	{
+		id: 44,
+		type: 16,
+		special: 'map'
+	},
+	{
+		id: 45,
+		type: 16,
+		special: 'map'
+	},
 	{
 		id: 46,
 		type: 17,

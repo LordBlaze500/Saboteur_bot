@@ -1,0 +1,15 @@
+NON-FEATURE TODOS
+ - remove "special" field
+ - extract repeating code parts to functions
+ - refactor deck.js to create same type cards via spread operator
+ - refactor cards to test by type instead of id (e.g. cardId < 0)
+ - rewrite code to assignment- instead of references-based functions (???)
+
+
+ WHEN GAME FINISHED
+ - remove commented out code
+ - refactor logic, simplify
+ - split to more files
+ - go through code and improve quality
+ - comments
+ - jsdocs, lints, tests
