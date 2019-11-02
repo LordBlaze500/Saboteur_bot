@@ -1,7 +1,16 @@
+FEATURES
+ - one saboteur, karma calculate
+ - saboteurBlaims
+ - chat/communication, promises
+ - game analysis/"help me" button
+ - precise calculations to change karma
+ - re-evaluate moves based on new info
+
 FIXES
  - if no coals discovered, add two possibilities to consider when reaching coal
 
 NON-FEATURE TODOS
+ - Math.floor -> Math.round
  - type -> cardType
  - remove "special" field
  - extract repeating code parts to functions

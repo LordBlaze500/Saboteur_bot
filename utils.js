@@ -302,7 +302,8 @@ const isGoldKnown = (knowledge) => {
   return false;
 }
 
-const addKnowledge = (knowledge, target, value) => {
+const addKnowledge = (orgKnowledge, target, value) => {
+  let knowledge = [...orgKnowledge];
   if (target === 0 && value === 1) {
     knowledge = [1,-1,-1];
   }
@@ -334,22 +335,117 @@ const addKnowledge = (knowledge, target, value) => {
   return knowledge;
 }
 
-const useMap = (board, knowledge) => {
-  if (knowledge[1] === 0) {
-    knowledge = addKnowledge(knowledge, 1, board[5][10].special === 'gold' ? 1 : -1);
-  } else if (knowledge[0] === 0) {
-    knowledge = addKnowledge(knowledge, 0, board[3][10].special === 'gold' ? 1 : -1);
+const makeClaim = (playersData, playerIndex, target, value, maxSaboteurs) => {
+  if (target === 0) {
+    console.log('I claim top is ' + (value === 1 ? 'gold' : 'coal') + '.');
+  } else if (target === 1) {
+    console.log('I claim middle is ' + (value === 1 ? 'gold' : 'coal') + '.');
   } else {
-    knowledge = addKnowledge(knowledge, 2, board[7][10].special === 'gold' ? 1 : -1);
+    console.log('I claim bottom is ' + (value === 1 ? 'gold' : 'coal') + '.');
   }
-  return knowledge;
+
+  for (let i = 0; i < playersData.length; ++i) {
+    playersData[i].claims[playerIndex][target] = value;
+    if (playersData[i].claims[i][target] === 1 && playersData[i].claims[playerIndex][target] === -1) {
+      updateKarmasValues(playersData[i], playerIndex, 100, maxSaboteurs);
+    } else if (playersData[i].claims[i][target] === -1 && playersData[i].claims[playerIndex][target] === 1) {
+      updateKarmasValues(playersData[i], playerIndex, 100, maxSaboteurs);
+    }
+  }
+
+  // for (let i = 0; i < playersData.length; ++i) {
+  //   if (playersData[i].karmas[playerIndex] === 0) {
+  //     playersData[i].targetsKnowledge = addKnowledge(playersData[i].targetsKnowledge, target, value);
+  //   }
+  // }
 }
 
-const calculateTargetsPropabilities = (knowledge) => { //, claims, karmas) => {
-  const sum = knowledge.reduce((a, b) => a + b, 0);
-  if (sum === 0) {
-    return [0.333, 0.333, 0.333];
+const useMap = (board, knowledge) => {
+  let target = null;
+  if (knowledge[1] === 0) {
+    knowledge = addKnowledge(knowledge, 1, board[5][10].special === 'gold' ? 1 : -1);
+    target = 1;
+  } else if (knowledge[0] === 0) {
+    knowledge = addKnowledge(knowledge, 0, board[3][10].special === 'gold' ? 1 : -1);
+    target = 0;
+  } else {
+    knowledge = addKnowledge(knowledge, 2, board[7][10].special === 'gold' ? 1 : -1);
+    target = 2;
   }
+  return { knowledge, target };
+}
+
+const calculateTargetsPropabilities = (playersData, playerIndex, maxSaboteurs) => {
+  const isSaboteur = playersData[playerIndex].role;
+
+  for (let i = 0; i < playersData.length; ++i) {
+    if (playersData[playerIndex].karmas[i] === 0) {
+      if (playersData[playerIndex].claims[i][0] !== 0) {
+        playersData[playerIndex].targetsKnowledge = addKnowledge(playersData[playerIndex].targetsKnowledge, 0, playersData[playerIndex].claims[i][0]);
+      }
+      if (playersData[playerIndex].claims[i][1] !== 0) {
+        playersData[playerIndex].targetsKnowledge = addKnowledge(playersData[playerIndex].targetsKnowledge, 1, playersData[playerIndex].claims[i][1]);
+      }
+      if (playersData[playerIndex].claims[i][2] !== 0) {
+        playersData[playerIndex].targetsKnowledge = addKnowledge(playersData[playerIndex].targetsKnowledge, 2, playersData[playerIndex].claims[i][2]);
+      }
+    }
+  }
+
+  // 0 -1
+  // 0 1
+  // 1 -1
+  // 1 1
+  // 2 -1
+  // 2 1
+
+  const sumClaims = [0,0,0,0,0,0];
+
+  const requiredClaims = isSaboteur ? (playersData.length - maxSaboteurs - 1) : (playersData.length - maxSaboteurs);
+
+  for (let i = 0; i < playersData.length; ++i) {
+    if (i !== playerIndex) {
+      if (playersData[playerIndex].claims[i][0] === -1) {
+        sumClaims[0] += 1;
+      }
+      if (playersData[playerIndex].claims[i][0] === 1) {
+        sumClaims[1] += 1;
+      }
+      if (playersData[playerIndex].claims[i][1] === -1) {
+        sumClaims[2] += 1;
+      }
+      if (playersData[playerIndex].claims[i][1] === 1) {
+        sumClaims[3] += 1;
+      }
+      if (playersData[playerIndex].claims[i][2] === -1) {
+        sumClaims[4] += 1;
+      }
+      if (playersData[playerIndex].claims[i][2] === 1) {
+        sumClaims[5] += 1;
+      }
+    }
+  }
+
+  if (sumClaims[0] >= requiredClaims) {
+    playersData[playerIndex].targetsKnowledge = addKnowledge(playersData[playerIndex].targetsKnowledge, 0, -1);
+  }
+  if (sumClaims[1] >= requiredClaims) {
+    playersData[playerIndex].targetsKnowledge = addKnowledge(playersData[playerIndex].targetsKnowledge, 0, 1);
+  }
+  if (sumClaims[2] >= requiredClaims) {
+    playersData[playerIndex].targetsKnowledge = addKnowledge(playersData[playerIndex].targetsKnowledge, 1, -1);
+  }
+  if (sumClaims[3] >= requiredClaims) {
+    playersData[playerIndex].targetsKnowledge = addKnowledge(playersData[playerIndex].targetsKnowledge, 1, 1);
+  }
+  if (sumClaims[4] >= requiredClaims) {
+    playersData[playerIndex].targetsKnowledge = addKnowledge(playersData[playerIndex].targetsKnowledge, 2, -1);
+  }
+  if (sumClaims[5] >= requiredClaims) {
+    playersData[playerIndex].targetsKnowledge = addKnowledge(playersData[playerIndex].targetsKnowledge, 2, 1);
+  }
+  
+  const knowledge = playersData[playerIndex].targetsKnowledge;
   if (knowledge[0] === 1) {
     return [1,0,0];
   }
@@ -359,6 +455,12 @@ const calculateTargetsPropabilities = (knowledge) => { //, claims, karmas) => {
   if (knowledge[2] === 1) {
     return [0,0,1];
   }
+
+  const sum = knowledge.reduce((a, b) => a + b, 0);
+  if (sum === 0) {
+    return [0.333, 0.333, 0.333];
+  }
+  
   if (knowledge[0] === -1) {
     return [0, 0.5, 0.5];
   }
@@ -392,12 +494,14 @@ const calculateMove = (cardsInHand, isSaboteur, board, propabilities, knowledge)
           operation: 'throwaway',
         })
       } else {
+        const { knowledge: obtainedKnowledge, target: obtainedTarget } = useMap(board, [...knowledge]);
         outcomes.push({
           value: isSaboteur ? 9999 : -9999,
           board,
           cardIndex: a,
           operation: 'map',
-          knowledge: useMap(board, [...knowledge])
+          knowledge: obtainedKnowledge,
+          target: obtainedTarget,
         })
       }
     } else {
@@ -542,18 +646,74 @@ const getDistanceToTarget = (i, j, whichTarget) => {
 const getClaimsArray = (playersNo) => {
   const claims = [];
   for (let i = 0; i < playersNo; ++i) {
-    claims.push({
-      top: 0,
-      middle: 0,
-      bottom: 0,
-    })
+    claims.push([0,0,0]);
   };
   return claims;
 }
 
-const initiateKarmas = (playersNo, isSaboteur, maxSaboteurs, playerIndex) => {
+const combo = (c) => {
+  var r = [],
+      len = c.length;
+      tmp = [];
+  function nodup() {
+    var got = {};
+    for (var l = 0; l < tmp.length; l++) {
+      if (got[tmp[l]]) return false;
+      got[tmp[l]] = true;
+    }
+    return true;
+  }
+  function iter(col,done) {    
+    var l, rr;
+    if (col === len) {      
+      if (nodup()) {
+        rr = [];
+        for (l = 0; l < tmp.length; l++) 
+          rr.push(c[tmp[l]]);        
+        r.push(rr);
+      }
+    } else {
+      for (l = 0; l < len; l ++) {            
+        tmp[col] = l;
+        iter(col +1);
+      }
+    }
+  }
+  iter(0);
+  return r;
+}
+
+const sabsNoChances = (playersNo, config) => {
+  // console.log('sabsNoChances');
+  const maxSabs = config.reduce((a,b) => a + b, 0);
+
+  let caseSum = 0;
+  let maxSabsCases = 0;
+  let oneSabLessCases = 0;
+
+  const permutations = combo([...config]);
+  for (let i = 0; i < permutations.length; ++i) {
+    permutations[i].length = playersNo;
+    caseSum = permutations[i].reduce((a, b) => a + b, 0);
+    if (caseSum === maxSabs) {
+      ++maxSabsCases;
+    } else {
+      ++oneSabLessCases;
+    }
+  }
+
+  // console.log('A');
+  // console.log(maxSabsCases);
+
+  // console.log('B');
+  // console.log(oneSabLessCases);
+
+  return Math.round((oneSabLessCases / (oneSabLessCases + maxSabsCases)) * 100);
+}
+
+const initiateKarmas = (playersNo, isSaboteur, maxSaboteurs, playerIndex, rolesConfig) => {
   const selfKarma = isSaboteur ? 100 : 0
-  let valueToSplit = maxSaboteurs * 100 - selfKarma;
+  let valueToSplit = maxSaboteurs * 100 - selfKarma - sabsNoChances(playersNo, rolesConfig);
   let karmasArray = [];
   karmasArray.length = playersNo;
   karmasArray[playerIndex] = selfKarma
@@ -563,6 +723,108 @@ const initiateKarmas = (playersNo, isSaboteur, maxSaboteurs, playerIndex) => {
     }
   }
   return karmasArray;
+}
+
+const isDeadEndCard = (cardType) => {
+  const deadEndsTypes = [0, 1, 2, 3, 4, 9, 10, 12, 13];
+  return deadEndsTypes.includes(cardType);
+}
+
+const complementKarmas = (karmasArray, maxSaboteurs) => {
+  const newKarmasArray = [...karmasArray];
+  const zeroKarmaPlayers = newKarmasArray.filter((el) => el === 0);
+  const hundredKarmaPlayers = newKarmasArray.filter((el) => el === 100);
+  if (hundredKarmaPlayers.length === maxSaboteurs) {
+    for (let i = 0; i < newKarmasArray.length; ++i) {
+      if (newKarmasArray[i] !== 100) {
+        newKarmasArray[i] = 0;
+      }
+    }
+    return newKarmasArray;
+  }
+  if (zeroKarmaPlayers.length === newKarmasArray.length - maxSaboteurs + 1) {
+    for (let i = 0; i < newKarmasArray.length; ++i) {
+      if (newKarmasArray[i] !== 0) {
+        newKarmasArray[i] = 100;
+      }
+    }
+    return newKarmasArray;
+  }
+  return karmasArray;
+}
+
+const updateKarmasValues = (karmasArray, index, value, maxSaboteurs) => {
+  if (karmasArray[index] === value || karmasArray[index] === 0 || karmasArray[index] === 100) {
+    return karmasArray;
+  }
+
+  let newKarmasArray = [...karmasArray];
+  const difference = value - karmasArray[index];
+  newKarmasArray[index] = value;
+
+  let remainingDifference = 0;
+  let nonConfirmedPlayers = newKarmasArray.filter((el) => (el !== 0 && el !== 100));
+  let valueToSplit = Math.floor(difference / nonConfirmedPlayers.length);
+  for (let i = 0; i < newKarmasArray.length; ++i) {
+    if (newKarmasArray[i] !== 0 && newKarmasArray[i] !== 100) {
+      newKarmasArray[i] -= valueToSplit;
+      if (newKarmasArray[i] < 0) {
+        remainingDifference = -newKarmasArray[i];
+        newKarmasArray[i] = 0;
+      }
+    }
+  }
+
+  nonConfirmedPlayers = newKarmasArray.filter((el) => (el !== 0 && el !== 100));
+  valueToSplit = Math.floor(remainingDifference / nonConfirmedPlayers.length);
+  for (let i = 0; i < newKarmasArray.length; ++i) {
+    if (newKarmasArray[i] !== 0 && newKarmasArray[i] !== 100) {
+      newKarmasArray[i] -= valueToSplit;
+    }
+  }
+
+  newKarmasArray = complementKarmas(newKarmasArray, maxSaboteurs);
+
+  return newKarmasArray;
+}
+
+const updateKarmas = (playersData, playerIndex, operation, cardType, maxSaboteurs, oldBoard, newBoard) => {
+  if (operation === 'build') {
+    let currentEval = null;
+    let newEval = null;
+    let probs = null;
+
+    for (let i = 0; i < playersData.length; ++i) {
+      probs = calculateTargetsPropabilities(playersData, i, maxSaboteurs);
+      currentEval = evaluateBoard(oldBoard, probs[0], probs[1], probs[2]);
+      newEval = evaluateBoard(newBoard, probs[0], probs[1], probs[2]);
+
+      if (isDeadEndCard(cardType)) {
+        playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, 100, maxSaboteurs);
+      }
+      if (newEval < currentEval) {
+        playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] - Math.floor(currentEval - newEval) * 20, maxSaboteurs);
+      }
+
+    }
+  } else if (operation === 'rockfall') {
+    let currentEval = null;
+    let newEval = null;
+    let probs = null;
+    for (let i = 0; i < playersData.length; ++i) {
+      probs = calculateTargetsPropabilities(playersData, i, maxSaboteurs);
+      currentEval = evaluateBoard(oldBoard, probs[0], probs[1], probs[2]);
+      newEval = evaluateBoard(newBoard, probs[0], probs[1], probs[2]);
+
+      if (newEval > currentEval) {
+        playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, 100, maxSaboteurs);
+      }
+      if (newEval < currentEval) {
+        playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, 0, maxSaboteurs);
+      }
+
+    }
+  }
 }
 
 module.exports = { 
@@ -589,5 +851,11 @@ module.exports = {
   useMap,
   calculateTargetsPropabilities,
   initiateKarmas,
+  isDeadEndCard,
+  complementKarmas,
+  updateKarmasValues,
+  updateKarmas,
+  makeClaim,
+  sabsNoChances,
   targets,
 }
