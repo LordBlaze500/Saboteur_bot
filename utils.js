@@ -375,6 +375,122 @@ const useMap = (board, knowledge) => {
   return { knowledge, target };
 }
 
+const getPropabilitiesWhenOneKnowledge = (playersData, playerIndex, knowledgeIndex) => {
+  let oneIndex = 0;
+  let twoIndex = 0;
+  if (knowledgeIndex === 0) {
+    oneIndex = 1;
+    twoIndex = 2;
+  }
+  if (knowledgeIndex === 1) {
+    oneIndex = 0;
+    twoIndex = 2;
+  }
+  if (knowledgeIndex === 2) {
+    oneIndex = 0;
+    twoIndex = 1;
+  }
+
+  let result = [0,0,0];
+  let coals = [0,0,0];
+  let golds = [0,0,0];
+  const claims = cloneClaims(playersData[playerIndex].claims);
+  const karmas = [...playersData[playerIndex].karmas];
+
+  for (let i = 0; i < claims.length; ++i) {
+    if (i !== playerIndex) {
+      if (claims[i][oneIndex] === -1) {
+        coals[oneIndex] += ((100 - karmas[i]) / 100);
+      }
+      if (claims[i][oneIndex] === 1) {
+        golds[oneIndex] += ((100 - karmas[i]) / 100);
+      }
+      if (claims[i][twoIndex] === -1) {
+        coals[twoIndex] += ((100 - karmas[i]) / 100);
+      }
+      if (claims[i][twoIndex] === 1) {
+        golds[twoIndex] += ((100 - karmas[i]) / 100);
+      }
+    }
+  }
+  result[oneIndex] = golds[oneIndex] - coals[oneIndex] + 1;
+  result[twoIndex] = golds[twoIndex] - coals[twoIndex] + 1;
+  while (result[oneIndex] < 0 || result[twoIndex] < 0) {
+    result[oneIndex] += 0.5;
+    result[twoIndex] += 0.5;
+  }
+  const flattener = result[oneIndex] + result[twoIndex];
+  result[oneIndex] = result[oneIndex] / flattener;
+  result[twoIndex] = result[twoIndex] / flattener;
+
+  return result;
+}
+
+const getPropabilitiesWithoutKnowledge = (playersData, playerIndex) => {
+  let result = [0,0,0];
+  let coals = [0,0,0];
+  let golds = [0,0,0];
+  const claims = cloneClaims(playersData[playerIndex].claims);
+  const karmas = [...playersData[playerIndex].karmas];
+
+  for (let i = 0; i < claims.length; ++i) {
+    if (i !== playerIndex) {
+      if (claims[i][0] === -1) {
+        coals[0] += ((100 - karmas[i]) / 100);
+      }
+      if (claims[i][0] === 1) {
+        golds[0] += ((100 - karmas[i]) / 100);
+      }
+      if (claims[i][1] === -1) {
+        coals[1] += ((100 - karmas[i]) / 100);
+      }
+      if (claims[i][1] === 1) {
+        golds[1] += ((100 - karmas[i]) / 100);
+      }
+      if (claims[i][2] === -1) {
+        coals[2] += ((100 - karmas[i]) / 100);
+      }
+      if (claims[i][2] === 1) {
+        golds[2] += ((100 - karmas[i]) / 100);
+      }
+
+    }
+  }
+  result[0] = golds[0] - coals[0];
+  result[1] = golds[1] - coals[1];
+  result[2] = golds[2] - coals[2];
+  while (result[0] < 0 || result[1] < 0 || result[2] < 0) {
+    result[0] += 0.333;
+    result[1] += 0.333;
+    result[2] += 0.333;
+  }
+  const flattener = result[0] + result[1] + result[2];
+  result[0] = result[0] / flattener;
+  result[1] = result[1] / flattener;
+  result[2] = result[2] / flattener;
+
+  return result;
+}
+
+const cloneClaims = (claims) => {
+  const clone = [];
+  for (let i = 0; i < claims.length; ++i) {
+    clone.push([...claims[i]]);
+  }
+  return clone;
+}
+
+const isNoClaimsMade = (claims) => {
+  for (let i = 0; i < claims.length; ++i) {
+    for (let j = 0; j < claims[i].length; ++j) {
+      if (claims[i][j] !== 0) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 const calculateTargetsPropabilities = (playersData, playerIndex, maxSaboteurs) => {
   const isSaboteur = playersData[playerIndex].role;
 
@@ -391,13 +507,6 @@ const calculateTargetsPropabilities = (playersData, playerIndex, maxSaboteurs) =
       }
     }
   }
-
-  // 0 -1
-  // 0 1
-  // 1 -1
-  // 1 1
-  // 2 -1
-  // 2 1
 
   const sumClaims = [0,0,0,0,0,0];
 
@@ -456,19 +565,15 @@ const calculateTargetsPropabilities = (playersData, playerIndex, maxSaboteurs) =
     return [0,0,1];
   }
 
-  const sum = knowledge.reduce((a, b) => a + b, 0);
-  if (sum === 0) {
+  if (isNoClaimsMade(playersData[playerIndex].claims)) {
     return [0.333, 0.333, 0.333];
-  }
-  
-  if (knowledge[0] === -1) {
-    return [0, 0.5, 0.5];
-  }
-  if (knowledge[1] === -1) {
-    return [0.5, 0, 0.5];
-  }
-  if (knowledge[2] === -1) {
-    return [0.5, 0.5, 0];
+  } else {
+    let knownTargetIndex = knowledge.findIndex((el) => el === -1);
+    if (knownTargetIndex > -1) {
+      return getPropabilitiesWhenOneKnowledge(playersData, playerIndex, knownTargetIndex);
+    } else {
+      return getPropabilitiesWithoutKnowledge(playersData, playerIndex);
+    }
   }
 }
 

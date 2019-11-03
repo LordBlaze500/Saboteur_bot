@@ -1,10 +1,11 @@
+KEEP THE CODE UGLY BUT FAST (e.g. [0,0,1] = good. { top: false, middle: false, bottom: true} = bad.)
+
 FEATURES
- - one saboteur, karma calculate
  - saboteurBlaims
  - chat/communication, promises
  - game analysis/"help me" button
  - precise calculations to change karma
- - re-evaluate moves based on new info
+ - re-evaluate past moves based on new info
 
 FIXES
  - if no coals discovered, add two possibilities to consider when reaching coal

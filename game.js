@@ -88,6 +88,10 @@ while (playersData[playersNo - 1].cards.length > 0) {
       calculateTargetsPropabilities(playersData, i, maxSaboteurs),
       playersData[i].targetsKnowledge
     );
+
+console.log('PROBABILITIEs');
+console.log(calculateTargetsPropabilities(playersData, i, maxSaboteurs));
+
     oldBoard = cloneBoard(board);
     if (move.operation === 'build') {
       console.log('BUILD');
@@ -118,10 +122,10 @@ while (playersData[playersNo - 1].cards.length > 0) {
     //   console.log(playersData[i].claims);
     // }
 
-    console.log('KNOWLEDGES');
-    for (let i = 0; i < playersNo; ++i) {
-      console.log(playersData[i].targetsKnowledge);
-    }
+    // console.log('KNOWLEDGES');
+    // for (let i = 0; i < playersNo; ++i) {
+    //   console.log(playersData[i].targetsKnowledge);
+    // }
 
     playersData[i].cards.splice(move.cardIndex, 1);
     if (shuffled.length > 0) {
