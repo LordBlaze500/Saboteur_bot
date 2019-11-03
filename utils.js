@@ -336,37 +336,58 @@ const addKnowledge = (orgKnowledge, target, value) => {
 }
 
 const makeClaim = (playersData, playerIndex, target, value, maxSaboteurs) => {
-  if (target === 0) {
-    console.log('I claim top is ' + (value === 1 ? 'gold' : 'coal') + '.');
-  } else if (target === 1) {
-    console.log('I claim middle is ' + (value === 1 ? 'gold' : 'coal') + '.');
+  if (playersData[playerIndex].role === 1) {
+    console.log('I claim nothing.');
+    for (let i = 0; i < playersData.length; ++i) {
+      updateKarmasValues(playersData[i].karmas, playerIndex, 100, maxSaboteurs);
+    }
   } else {
-    console.log('I claim bottom is ' + (value === 1 ? 'gold' : 'coal') + '.');
-  }
+    if (target === 0) {
+      console.log('I claim top is ' + (value === 1 ? 'gold' : 'coal') + '.');
+    } else if (target === 1) {
+      console.log('I claim middle is ' + (value === 1 ? 'gold' : 'coal') + '.');
+    } else {
+      console.log('I claim bottom is ' + (value === 1 ? 'gold' : 'coal') + '.');
+    }
 
-  for (let i = 0; i < playersData.length; ++i) {
-    playersData[i].claims[playerIndex][target] = value;
-    if (playersData[i].claims[i][target] === 1 && playersData[i].claims[playerIndex][target] === -1) {
-      updateKarmasValues(playersData[i], playerIndex, 100, maxSaboteurs);
-    } else if (playersData[i].claims[i][target] === -1 && playersData[i].claims[playerIndex][target] === 1) {
-      updateKarmasValues(playersData[i], playerIndex, 100, maxSaboteurs);
+    for (let i = 0; i < playersData.length; ++i) {
+      playersData[i].claims[playerIndex][target] = value;
+      if (playersData[i].claims[i][target] === 1 && playersData[i].claims[playerIndex][target] === -1) {
+        updateKarmasValues(playersData[i].karmas, playerIndex, 100, maxSaboteurs);
+      } else if (playersData[i].claims[i][target] === -1 && playersData[i].claims[playerIndex][target] === 1) {
+        updateKarmasValues(playersData[i].karmas, playerIndex, 100, maxSaboteurs);
+      }
     }
   }
 }
 
-const useMap = (board, knowledge) => {
+const useMap = (board, knowledge, propabilities) => {
   let target = null;
-  if (knowledge[1] === 0) {
-    knowledge = addKnowledge(knowledge, 1, board[5][10].special === 'gold' ? 1 : -1);
-    target = 1;
-  } else if (knowledge[0] === 0) {
+  let propabilitiesWithIndexes = [
+    { prob: propabilities[1], index: 1 },
+    { prob: propabilities[0], index: 0 },
+    { prob: propabilities[2], index: 2 }
+  ];
+  propabilitiesWithIndexes.sort((a, b) => {
+    if (a.prob > b.prob) {
+      return -1;
+    }
+    if (a.prob < b.prob) {
+      return 1;
+    }
+    return 0;
+  });
+
+  const targetToAim = propabilitiesWithIndexes[0].index;
+
+  if (targetToAim === 0) {
     knowledge = addKnowledge(knowledge, 0, board[3][10].special === 'gold' ? 1 : -1);
-    target = 0;
+  } else if (targetToAim === 1) {
+    knowledge = addKnowledge(knowledge, 1, board[5][10].special === 'gold' ? 1 : -1);
   } else {
     knowledge = addKnowledge(knowledge, 2, board[7][10].special === 'gold' ? 1 : -1);
-    target = 2;
   }
-  return { knowledge, target };
+  return { knowledge, target: targetToAim };
 }
 
 const getPropabilitiesWhenOneKnowledge = (playersData, playerIndex, knowledgeIndex) => {
@@ -601,7 +622,7 @@ const shouldConsiderFix = (playersData, playerIndex, targetIndex) => {
   return false;
 }
 
-const calculateMove = (playersData, playerIndex, maxSaboteurs, board) => {
+const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) => {
   const cardsInHand = playersData[playerIndex].cards;
   const isSaboteur = playersData[playerIndex].role === 1;
   const propabilities = calculateTargetsPropabilities(playersData, playerIndex, maxSaboteurs);
@@ -627,8 +648,8 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board) => {
           cardIndex: a,
           operation: 'throwaway',
         })
-      } else {
-        const { knowledge: obtainedKnowledge, target: obtainedTarget } = useMap(board, [...knowledge]);
+      } else if (!isSaboteur || turnNo > 3) {
+        const { knowledge: obtainedKnowledge, target: obtainedTarget } = useMap(board, [...knowledge], [...propabilities]);
         outcomes.push({
           value: isSaboteur ? 99 : -99,
           board,
@@ -850,10 +871,31 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board) => {
   }
 
   if (outcomes.length === 0) {
+    let relativeCardValues = [];
+    for (let i = 0; i < cardsInHand.length; ++i) {
+      if (cardsInHand[i].type >= 21) {
+        relativeCardValues[i] = { value: isSaboteur ? 3 : 2, index: i };
+      } else if (cardsInHand[i].type >= 18 && cardsInHand[i].type <= 20) {
+        relativeCardValues[i] = { value: isSaboteur ? 2 : 3, index: i };
+      } else {
+        relativeCardValues[i] = { value: (cardsInHand[i].outUp ? 1 : 0) + (cardsInHand[i].outRight ? 1.5 : 0) + (cardsInHand[i].outLeft ? 1.5 : 0) + (cardsInHand[i].outDown ? 1 : 0), index: i };
+      }
+    }
+
+    relativeCardValues.sort((a, b) => {
+      if (a.value > b.value) {
+        return isSaboteur ? -1 : 1;
+      }
+      if (b.value > a.value) {
+        return isSaboteur ? 1 : -1;
+      }
+      return 0;
+    });
+
     outcomes.push({
-      value: isSaboteur ? currentEvaluation + 0.01 : currentEvaluation - 0.01,
+      value: currentEvaluation + relativeCardValues[0].value,
       board,
-      cardIndex: 0,
+      cardIndex: relativeCardValues[0].index,
       operation: 'throwaway',
     })
   }

@@ -88,10 +88,10 @@ while (playersData[playersNo - 1].cards.length > 0) {
     console.log((playersData[i].role === 1 ? 'Saboteur ' + saboteurNo++  : 'Digger ' + diggerNo++) + ', player ' + (i + 1));
     console.log(playersData[i].pickaxe + ' ' + playersData[i].truck + ' ' + playersData[i].lamp);
 
-    move = calculateMove(playersData, i, maxSaboteurs, board);
+    move = calculateMove(playersData, i, maxSaboteurs, board, turnNo);
 
-console.log('PROBABILITIEs');
-console.log(calculateTargetsPropabilities(playersData, i, maxSaboteurs));
+    console.log('PROBABILITIEs');
+    console.log(calculateTargetsPropabilities(playersData, i, maxSaboteurs));
 
     oldBoard = cloneBoard(board);
     if (move.operation === 'build') {

@@ -1,7 +1,6 @@
 KEEP THE CODE UGLY BUT FAST (e.g. [0,0,1] = good. { top: false, middle: false, bottom: true} = bad.)
 
 FEATURES
- - PRECISE DECIDING WHICH CARD TO THROW
  - saboteurBlaims
  - chat/communication, promises
  - game analysis/"help me" button
