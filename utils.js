@@ -912,6 +912,10 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
 
   const bestMove = outcomes[0];
 
+  if (!isSaboteur && bestMove.operation === 'rockfall') {
+    console.log(outcomes);
+  }
+
   return bestMove;
 }
 
@@ -1131,11 +1135,25 @@ const updateKarmas = (playersData, playerIndex, operation, cardType, maxSaboteur
     }
   } else if (operation === 'block') {
     for (let i = 0; i < playersData.length; ++i) {
-      playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] + 100 - playersData[i].karmas[operationTarget], maxSaboteurs);
+        if (playersData[i].karmas[operationTarget] === 0) {
+          playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, 100, maxSaboteurs);
+        } else if (playersData[i].karmas[operationTarget] === 100) {
+          playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, 0, maxSaboteurs);
+        } else {
+          playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] + 100 - playersData[i].karmas[operationTarget], maxSaboteurs);
+        }
     }
   } else if (operation === 'fix') {
     for (let i = 0; i < playersData.length; ++i) {
-      playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] - 100 + playersData[i].karmas[operationTarget], maxSaboteurs);
+      if (playerIndex !== operationTarget) {
+        if (playersData[i].karmas[operationTarget] === 0) {
+          playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, 0, maxSaboteurs);
+        } else if (playersData[i].karmas[operationTarget] === 100) {
+          playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, 100, maxSaboteurs);
+        } else {
+          playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] - 100 + playersData[i].karmas[operationTarget], maxSaboteurs);
+        }
+      }
     }
   }
 }
@@ -1160,7 +1178,7 @@ const getToolsChangePossibleUses = (playersData, playerIndex, tool, newStatus) =
         possibleUsesArray.push(i);
       } else if (tool === 'truck' && playersData[i].truck === false) {
         possibleUsesArray.push(i);
-      } else if (tool === 'lamp' && playersData[i].truck === false) {
+      } else if (tool === 'lamp' && playersData[i].lamp === false) {
         possibleUsesArray.push(i);
       }
     }
@@ -1171,7 +1189,7 @@ const getToolsChangePossibleUses = (playersData, playerIndex, tool, newStatus) =
           possibleUsesArray.push(i);
         } else if (tool === 'truck' && playersData[i].truck === true) {
           possibleUsesArray.push(i);
-        } else if (tool === 'lamp' && playersData[i].truck === true) {
+        } else if (tool === 'lamp' && playersData[i].lamp === true) {
           possibleUsesArray.push(i);
         }
       }
