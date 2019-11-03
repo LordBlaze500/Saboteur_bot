@@ -352,12 +352,6 @@ const makeClaim = (playersData, playerIndex, target, value, maxSaboteurs) => {
       updateKarmasValues(playersData[i], playerIndex, 100, maxSaboteurs);
     }
   }
-
-  // for (let i = 0; i < playersData.length; ++i) {
-  //   if (playersData[i].karmas[playerIndex] === 0) {
-  //     playersData[i].targetsKnowledge = addKnowledge(playersData[i].targetsKnowledge, target, value);
-  //   }
-  // }
 }
 
 const useMap = (board, knowledge) => {
@@ -577,7 +571,42 @@ const calculateTargetsPropabilities = (playersData, playerIndex, maxSaboteurs) =
   }
 }
 
-const calculateMove = (cardsInHand, isSaboteur, board, propabilities, knowledge) => {
+const isPlayerBlocked = (playersData, playerIndex) => (playersData[playerIndex].pickaxe === false || playersData[playerIndex].truck === false || playersData[playerIndex].lamp === false);
+
+const shouldConsiderBlock = (playersData, playerIndex, targetIndex) => {
+  const isSaboteur = playersData[playerIndex].role === 1;
+  if (isSaboteur) {
+    if (playersData[playerIndex].karmas[targetIndex] < 20) {
+      return true;
+    }
+  } else {
+    if (playersData[playerIndex].karmas[targetIndex] > 80) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const shouldConsiderFix = (playersData, playerIndex, targetIndex) => {
+  const isSaboteur = playersData[playerIndex].role === 1;
+  if (isSaboteur) {
+    if (playersData[playerIndex].karmas[targetIndex] > 60) {
+      return true;
+    }
+  } else {
+    if (playersData[playerIndex].karmas[targetIndex] < 40) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const calculateMove = (playersData, playerIndex, maxSaboteurs, board) => {
+  const cardsInHand = playersData[playerIndex].cards;
+  const isSaboteur = playersData[playerIndex].role === 1;
+  const propabilities = calculateTargetsPropabilities(playersData, playerIndex, maxSaboteurs);
+  const knowledge = playersData[playerIndex].targetsKnowledge;
+
   let outcomes = [];
   let clone;
   let value;
@@ -601,7 +630,7 @@ const calculateMove = (cardsInHand, isSaboteur, board, propabilities, knowledge)
       } else {
         const { knowledge: obtainedKnowledge, target: obtainedTarget } = useMap(board, [...knowledge]);
         outcomes.push({
-          value: isSaboteur ? 9999 : -9999,
+          value: isSaboteur ? 99 : -99,
           board,
           cardIndex: a,
           operation: 'map',
@@ -609,7 +638,147 @@ const calculateMove = (cardsInHand, isSaboteur, board, propabilities, knowledge)
           target: obtainedTarget,
         })
       }
-    } else {
+    } else if (cardsInHand[a].type === 17) {
+      for (let i = 0; i < board.length; ++i) {
+        for (let j = 0; j < board[i].length; ++j) {
+          if (!(j === 10 && i === targets[1]) && !(j === 10 && i === targets[2]) && board[i][j].type >= 0 && board[i][j].type <= 15) {
+            clone = cloneBoard(board);
+            doRockFall(clone, i, j);
+            outcomes.push({
+              value: evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb),
+              cardIndex: a,
+              board: clone,
+              operation: 'rockfall',
+            });
+          }
+        }
+      }
+    } else if (cardsInHand[a].type >= 18 && cardsInHand[a].type <= 20) {
+      let stringBlock = '';
+      if (cardsInHand[a].type === 18) {
+        stringBlock = 'pickaxe';
+      }
+      if (cardsInHand[a].type === 19) {
+        stringBlock = 'truck';
+      }
+      if (cardsInHand[a].type === 20) {
+        stringBlock = 'lamp';
+      }
+
+      let possibleUses = getToolsChangePossibleUses(playersData, playerIndex, stringBlock, false);
+      let isTargetAlreadyBlocked = false;
+      let moveValue = null;
+
+      possibleUses = possibleUses.filter((el) => shouldConsiderBlock(playersData, playerIndex, el));
+
+      for (let i = 0; i < possibleUses.length; ++i) {
+        isTargetAlreadyBlocked = isPlayerBlocked(playersData, possibleUses[i]);
+
+        moveValue = currentEvaluation;
+        if (isSaboteur) {
+          moveValue += (((100 - playersData[playerIndex].karmas[possibleUses[i]]) * (isTargetAlreadyBlocked ? 1 : 5)) / 100);
+        } else {
+          moveValue -= (((playersData[playerIndex].karmas[possibleUses[i]]) * (isTargetAlreadyBlocked ? 1 : 5)) / 100);
+        }
+
+        outcomes.push({
+          value: moveValue,
+          cardIndex: a,
+          board,
+          operation: 'block',
+          blockType: stringBlock,
+          blockTarget: possibleUses[i],
+        })
+      }
+    } else if (cardsInHand[a].type >= 21) {
+      let stringFixOne = '';
+      let stringFixTwo = '';
+      if (cardsInHand[a].type === 21) {
+        stringFixOne = 'pickaxe';
+      }
+      if (cardsInHand[a].type === 22) {
+        stringFixOne = 'truck';
+      }
+      if (cardsInHand[a].type === 23) {
+        stringFixOne = 'lamp';
+      }
+      if (cardsInHand[a].type === 24) {
+        stringFixOne = 'truck';
+        stringFixTwo = 'lamp';
+      }
+      if (cardsInHand[a].type === 25) {
+        stringFixOne = 'pickaxe';
+        stringFixTwo = 'truck';
+      }
+      if (cardsInHand[a].type === 26) {
+        stringFixOne = 'pickaxe';
+        stringFixTwo = 'lamp';
+      }
+
+      let possibleUsesOne = getToolsChangePossibleUses(playersData, playerIndex, stringFixOne, true);
+      let possibleUsesTwo = [];
+      if (stringFixTwo.length > 0) {
+        possibleUsesTwo = getToolsChangePossibleUses(playersData, playerIndex, stringFixTwo, true);
+      }
+
+      possibleUsesOne = possibleUsesOne.filter((el) => shouldConsiderFix(playersData, playerIndex, el));
+      possibleUsesTwo = possibleUsesTwo.filter((el) => shouldConsiderFix(playersData, playerIndex, el));
+
+      let moveValue = null;
+
+      for (let i = 0; i < possibleUsesOne.length; ++i) {
+        moveValue = currentEvaluation;
+        if (isSaboteur) {
+          if (playerIndex === possibleUsesOne[i]) {
+            moveValue = currentEvaluation + 3;
+          } else {
+            moveValue += (playersData[playerIndex].karmas[possibleUsesOne[i]] * 1) / 100;
+          }
+        } else {
+          if (playerIndex === possibleUsesOne[i]) {
+            moveValue = currentEvaluation - 3;
+          } else {
+            moveValue -= ((100 - playersData[playerIndex].karmas[possibleUsesOne[i]]) * 1) / 100;
+          }
+        }
+
+        outcomes.push({
+          value: moveValue,
+          cardIndex: a,
+          board,
+          operation: 'fix',
+          fixType: stringFixOne,
+          fixTarget: possibleUsesOne[i],
+        })
+      }
+
+      for (let i = 0; i < possibleUsesTwo.length; ++i) {
+        moveValue = currentEvaluation;
+        if (isSaboteur) {
+          if (playerIndex === possibleUsesTwo[i]) {
+            moveValue = currentEvaluation + 3;
+          } else {
+            moveValue += (playersData[playerIndex].karmas[possibleUsesTwo[i]] * 1.5) / 100;
+          }
+        } else {
+          if (playerIndex === possibleUsesTwo[i]) {
+            moveValue = currentEvaluation - 3;
+          } else {
+            moveValue -= ((100 - playersData[playerIndex].karmas[possibleUsesTwo[i]]) * 1.5) / 100;
+          }
+        }
+
+        outcomes.push({
+          value: moveValue,
+          cardIndex: a,
+          board,
+          operation: 'fix',
+          fixType: stringFixTwo,
+          fixTarget: possibleUsesTwo[i],
+        })
+      }
+
+    } else if (!isPlayerBlocked(playersData, playerIndex)) {
       flipped = cardsInHand[a].flippable ? flipCard({...cardsInHand[a]}) : null;
       for (let i = 0; i < board.length; ++i) {
         for (let j = 0; j < board[i].length; ++j) {
@@ -619,10 +788,9 @@ const calculateMove = (cardsInHand, isSaboteur, board, propabilities, knowledge)
               buildCard(clone, cardsInHand[a], i, j, false);
               checkTargets(clone, i, j, true);
               if (isGoldRevealed(clone)) {
-                value = 0
+                value = -9999;
               } else {
                 value = evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb);
-                // value = evaluateBoard(clone, 0.333, 0.333, 0.333);
               }
               cardOutcomes.push({
                 value,
@@ -645,7 +813,6 @@ const calculateMove = (cardsInHand, isSaboteur, board, propabilities, knowledge)
                   value = 0
                 } else {
                   value = evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb);
-                  // value = evaluateBoard(clone, 0.333, 0.333, 0.333);
                 }
                 cardOutcomes.push({
                   value,
@@ -659,16 +826,7 @@ const calculateMove = (cardsInHand, isSaboteur, board, propabilities, knowledge)
                 })
               }
             }
-          } else if (cardsInHand[a].type === 17 && !(j === 10 && i === targets[1]) && !(j === 10 && i === targets[2]) && board[i][j].type >= 0 && board[i][j].type <= 15) {
-            clone = cloneBoard(board);
-            doRockFall(clone, i, j);
-            outcomes.push({
-              value: evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb),
-              cardIndex: a,
-              board: clone,
-              operation: 'rockfall',
-            })
-          }
+          } 
         }
       }
 
@@ -789,7 +947,6 @@ const combo = (c) => {
 }
 
 const sabsNoChances = (playersNo, config) => {
-  // console.log('sabsNoChances');
   const maxSabs = config.reduce((a,b) => a + b, 0);
 
   let caseSum = 0;
@@ -806,12 +963,6 @@ const sabsNoChances = (playersNo, config) => {
       ++oneSabLessCases;
     }
   }
-
-  // console.log('A');
-  // console.log(maxSabsCases);
-
-  // console.log('B');
-  // console.log(oneSabLessCases);
 
   return Math.round((oneSabLessCases / (oneSabLessCases + maxSabsCases)) * 100);
 }
@@ -863,6 +1014,13 @@ const updateKarmasValues = (karmasArray, index, value, maxSaboteurs) => {
     return karmasArray;
   }
 
+  if (value < 0) {
+    value = 0;
+  }
+  if (value > 100) {
+    value = 100;
+  }
+
   let newKarmasArray = [...karmasArray];
   const difference = value - karmasArray[index];
   newKarmasArray[index] = value;
@@ -893,7 +1051,7 @@ const updateKarmasValues = (karmasArray, index, value, maxSaboteurs) => {
   return newKarmasArray;
 }
 
-const updateKarmas = (playersData, playerIndex, operation, cardType, maxSaboteurs, oldBoard, newBoard) => {
+const updateKarmas = (playersData, playerIndex, operation, cardType, maxSaboteurs, oldBoard, newBoard, operationTarget) => {
   if (operation === 'build') {
     let currentEval = null;
     let newEval = null;
@@ -929,7 +1087,55 @@ const updateKarmas = (playersData, playerIndex, operation, cardType, maxSaboteur
       }
 
     }
+  } else if (operation === 'block') {
+    for (let i = 0; i < playersData.length; ++i) {
+      playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] + 100 - playersData[i].karmas[operationTarget], maxSaboteurs);
+    }
+  } else if (operation === 'fix') {
+    for (let i = 0; i < playersData.length; ++i) {
+      playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] - 100 + playersData[i].karmas[operationTarget], maxSaboteurs);
+    }
   }
+}
+
+const changeTool = (playersData, playerIndex, tool, newStatus) => {
+  if (tool === 'pickaxe') {
+    playersData[playerIndex].pickaxe = newStatus;
+  }
+  if (tool === 'lamp') {
+    playersData[playerIndex].lamp = newStatus;
+  }
+  if (tool === 'truck') {
+    playersData[playerIndex].truck = newStatus;
+  }
+}
+
+const getToolsChangePossibleUses = (playersData, playerIndex, tool, newStatus) => {
+  let possibleUsesArray = [];
+  if (newStatus) {
+    for (let i = 0; i < playersData.length; ++i) {
+      if (tool === 'pickaxe' && playersData[i].pickaxe === false) {
+        possibleUsesArray.push(i);
+      } else if (tool === 'truck' && playersData[i].truck === false) {
+        possibleUsesArray.push(i);
+      } else if (tool === 'lamp' && playersData[i].truck === false) {
+        possibleUsesArray.push(i);
+      }
+    }
+  } else {
+    for (let i = 0; i < playersData.length; ++i) {
+      if (i !== playerIndex) {
+        if (tool === 'pickaxe' && playersData[i].pickaxe === true) {
+          possibleUsesArray.push(i);
+        } else if (tool === 'truck' && playersData[i].truck === true) {
+          possibleUsesArray.push(i);
+        } else if (tool === 'lamp' && playersData[i].truck === true) {
+          possibleUsesArray.push(i);
+        }
+      }
+    }
+  }
+  return possibleUsesArray;
 }
 
 module.exports = { 

@@ -564,96 +564,96 @@ const deck = [
 		type: 17,
 		special: 'rockfall'
 	},
-	// {
-	// 	id: 49,
-	// 	type: 18,
-	// 	special: 'break_pickaxe'
-	// },
-	// {
-	// 	id: 50,
-	// 	type: 18,
-	// 	special: 'break_pickaxe'
-	// },
-	// {
-	// 	id: 51,
-	// 	type: 18,
-	// 	special: 'break_pickaxe'
-	// },
-	// {
-	// 	id: 52,
-	// 	type: 19,
-	// 	special: 'break_truck'
-	// },
-	// {
-	// 	id: 53,
-	// 	type: 19,
-	// 	special: 'break_truck'
-	// },
-	// {
-	// 	id: 54,
-	// 	type: 19,
-	// 	special: 'break_truck'
-	// },
-	// {
-	// 	id: 55,
-	// 	type: 20,
-	// 	special: 'break_lamp'
-	// },
-	// {
-	// 	id: 56,
-	// 	type: 20,
-	// 	special: 'break_lamp'
-	// },
-	// {
-	// 	id: 57,
-	// 	type: 20,
-	// 	special: 'break_lamp'
-	// },
-	// {
-	// 	id: 58,
-	// 	type: 21,
-	// 	special: 'fix_pickaxe'
-	// },
-	// {
-	// 	id: 59,
-	// 	type: 21,
-	// 	special: 'fix_pickaxe'
-	// },
-	// {
-	// 	id: 60,
-	// 	type: 22,
-	// 	special: 'fix_truck'
-	// },
-	// {
-	// 	id: 61,
-	// 	type: 22,
-	// 	special: 'fix_truck'
-	// },
-	// {
-	// 	id: 62,
-	// 	type: 23,
-	// 	special: 'fix_lamp'
-	// },
-	// {
-	// 	id: 63,
-	// 	type: 23,
-	// 	special: 'fix_lamp'
-	// },
-	// {
-	// 	id: 64,
-	// 	type: 24,
-	// 	special: 'fix_truck_lamp'
-	// },
-	// {
-	// 	id: 65,
-	// 	type: 25,
-	// 	special: 'fix_pickaxe_truck'
-	// },
-	// {
-	// 	id: 66,
-	// 	type: 26,
-	// 	special: 'fix_pickaxe_lamp'
-	// },
+	{
+		id: 49,
+		type: 18,
+		special: 'break_pickaxe'
+	},
+	{
+		id: 50,
+		type: 18,
+		special: 'break_pickaxe'
+	},
+	{
+		id: 51,
+		type: 18,
+		special: 'break_pickaxe'
+	},
+	{
+		id: 52,
+		type: 19,
+		special: 'break_truck'
+	},
+	{
+		id: 53,
+		type: 19,
+		special: 'break_truck'
+	},
+	{
+		id: 54,
+		type: 19,
+		special: 'break_truck'
+	},
+	{
+		id: 55,
+		type: 20,
+		special: 'break_lamp'
+	},
+	{
+		id: 56,
+		type: 20,
+		special: 'break_lamp'
+	},
+	{
+		id: 57,
+		type: 20,
+		special: 'break_lamp'
+	},
+	{
+		id: 58,
+		type: 21,
+		special: 'fix_pickaxe'
+	},
+	{
+		id: 59,
+		type: 21,
+		special: 'fix_pickaxe'
+	},
+	{
+		id: 60,
+		type: 22,
+		special: 'fix_truck'
+	},
+	{
+		id: 61,
+		type: 22,
+		special: 'fix_truck'
+	},
+	{
+		id: 62,
+		type: 23,
+		special: 'fix_lamp'
+	},
+	{
+		id: 63,
+		type: 23,
+		special: 'fix_lamp'
+	},
+	{
+		id: 64,
+		type: 24,
+		special: 'fix_truck_lamp'
+	},
+	{
+		id: 65,
+		type: 25,
+		special: 'fix_pickaxe_truck'
+	},
+	{
+		id: 66,
+		type: 26,
+		special: 'fix_pickaxe_lamp'
+	},
 ];
 
 module.exports = { deck };

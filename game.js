@@ -73,21 +73,22 @@ let oldBoard = null;
 let move = null;
 let saboteurNo = 1;
 let diggerNo = 1;
+let operationTarget = null;
 
 while (playersData[playersNo - 1].cards.length > 0) {
+
+  operationTarget = null;
+
+  console.log(' ');
   console.log('TURN ' + turnNo++);
   saboteurNo = 1;
   diggerNo = 1;
   for (let i = 0; i < playersNo; ++i) {
+    console.log(' ');
     console.log((playersData[i].role === 1 ? 'Saboteur ' + saboteurNo++  : 'Digger ' + diggerNo++) + ', player ' + (i + 1));
+    console.log(playersData[i].pickaxe + ' ' + playersData[i].truck + ' ' + playersData[i].lamp);
 
-    move = calculateMove(
-      playersData[i].cards, 
-      playersData[i].role === 1,
-      board,
-      calculateTargetsPropabilities(playersData, i, maxSaboteurs),
-      playersData[i].targetsKnowledge
-    );
+    move = calculateMove(playersData, i, maxSaboteurs, board);
 
 console.log('PROBABILITIEs');
 console.log(calculateTargetsPropabilities(playersData, i, maxSaboteurs));
@@ -101,13 +102,24 @@ console.log(calculateTargetsPropabilities(playersData, i, maxSaboteurs));
       board = cloneBoard(move.board);
     } else if (move.operation === 'throwaway') {
       console.log('THROWAWAY');
+      console.log(playersData[i].cards[move.cardIndex]);
     } else if (move.operation === 'map') {
       console.log('MAP');
       playersData[i].targetsKnowledge = move.knowledge;
       makeClaim(playersData, i, move.target, playersData[i].targetsKnowledge[move.target], maxSaboteurs);
+    } else if (move.operation === 'block') {
+      console.log('BLOCK ' + (move.blockTarget + 1) + ' by ' + move.blockType);
+      console.log(move.value);
+      playersData[move.blockTarget][move.blockType] = false;
+      operationTarget = move.blockTarget;
+    } else if (move.operation === 'fix') {
+      console.log('FIX ' + (move.fixTarget + 1) + ' by ' + move.fixType);
+      console.log(move.value);
+      playersData[move.fixTarget][move.fixType] = true;
+      operationTarget = move.fixTarget;
     }
 
-    updateKarmas(playersData, i, move.operation, move.cardType, maxSaboteurs, oldBoard, board);
+    updateKarmas(playersData, i, move.operation, move.cardType, maxSaboteurs, oldBoard, board, operationTarget);
 
     checkTargets(board, move.i, move.j);
     
