@@ -33,6 +33,7 @@ const {
   sabsNoChances,
   initiateCardsAmounts,
   removeCardFromCardsAmounts,
+  finalReveal,
   targets,
 } = require('./utils');
 
@@ -44,9 +45,10 @@ const playersNo = 5;
 const maxSaboteurs = getMaxSaboteurs(5);
 const roles = shuffle(playersConfigs[playersNo]); 
 
-const playersData = [];
+let playersData = [];
 for (let i = 0; i < playersNo; ++i) {
   playersData.push({
+    name: 'Bot ' + (i + 1),
     id: i,
     role: roles[i],
     pickaxe: true,
@@ -91,77 +93,37 @@ while (playersData[playersNo - 1].cards.length > 0) {
   saboteurNo = 1;
   diggerNo = 1;
   for (let i = 0; i < playersNo; ++i) {
-    console.log(' ');
-    console.log((playersData[i].role === 1 ? 'Saboteur ' + saboteurNo++  : 'Digger ' + diggerNo++) + ', player ' + (i + 1));
+    // console.log(' ');
+    // console.log((playersData[i].role === 1 ? 'Saboteur ' + saboteurNo++  : 'Digger ' + diggerNo++) + ', player ' + (i + 1));
+    console.log('Player ' + (i+1) + ', ' + playersData[i].name);
+
     console.log(playersData[i].pickaxe + ' ' + playersData[i].truck + ' ' + playersData[i].lamp);
 
     move = calculateMove(playersData, i, maxSaboteurs, board, turnNo);
-
-    console.log('PROBABILITIEs');
-    console.log(calculateTargetsPropabilities(playersData, i, maxSaboteurs));
-
     oldBoard = cloneBoard(board);
-    if (move.operation === 'build') {
-      console.log('BUILD');
-      board = cloneBoard(move.board);
-    } else if (move.operation === 'rockfall') {
-      console.log('ROCKFALL');
-      board = cloneBoard(move.board);
-    } else if (move.operation === 'throwaway') {
-      console.log('THROWAWAY');
-      console.log(playersData[i].cards[move.cardIndex]);
-    } else if (move.operation === 'map') {
-      console.log('MAP');
-      playersData[i].targetsKnowledge = move.knowledge;
-      makeClaim(playersData, i, move.target, playersData[i].targetsKnowledge[move.target], maxSaboteurs);
-    } else if (move.operation === 'block') {
-      console.log('BLOCK ' + (move.blockTarget + 1) + ' by ' + move.blockType);
-      console.log(move.value);
-      playersData[move.blockTarget][move.blockType] = false;
-      operationTarget = move.blockTarget;
-    } else if (move.operation === 'fix') {
-      console.log('FIX ' + (move.fixTarget + 1) + ' by ' + move.fixType);
-      console.log(move.value);
-      playersData[move.fixTarget][move.fixType] = true;
-      operationTarget = move.fixTarget;
-    }
 
-    updateKarmas(playersData, i, move.operation, move.cardType, maxSaboteurs, oldBoard, board, operationTarget);
+    board = move.board;
+    playersData = move.playersData;
 
-    checkTargets(board, move.i, move.j);
+    console.log(move.description);
+
+    // console.log('PROBABILITIEs');
+    // console.log(calculateTargetsPropabilities(playersData, i, maxSaboteurs));
+
+    checkTargets(board, move.i, move.j, playersData);
     
     graphBoard(board);
-    console.log('KARMAS');
-    for (let i = 0; i < playersNo; ++i) {
-      console.log(playersData[i].karmas);
-    }
-
-    // console.log('CLAIMS');
+    // console.log('KARMAS');
     // for (let i = 0; i < playersNo; ++i) {
-    //   console.log(playersData[i].claims);
+    //   console.log(playersData[i].karmas);
     // }
-
-    // console.log('KNOWLEDGES');
-    // for (let i = 0; i < playersNo; ++i) {
-    //   console.log(playersData[i].targetsKnowledge);
-    // }
-
-    if (move.operation !== 'throwaway') {
-      for (let j = 0; j < playersNo; ++j) {
-        if (i !== j) {
-          removeCardFromCardsAmounts(playersData[j].cardsAmountsInGame, playersData[i].cards[move.cardIndex].type);
-        }
-      }
-    }
-
-    playersData[i].cards.splice(move.cardIndex, 1);
 
     if (shuffled.length > 0) {
       playersData[i].cards.push(shuffled.pop());
-      removeCardFromCardsAmounts(playersData[i].cardsAmountsInGame, playersData[i].cards[playersData[i].cards.length - 1].type);
     }
   }
 }
 
 console.log('SABOTEURS WIN');
+finalReveal(playersData, board, true);
 process.exit(0);

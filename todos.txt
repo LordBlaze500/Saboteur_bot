@@ -12,8 +12,6 @@ FEATURES
  - when human players: saboteurs spam-lies chat
  - estimatedSelfKarma/isOuted
  - 3 rounds, points (gold nuggets) for victory
- - players given names & ids
- - revealing who was who after the game & where was gold (if needed)
  - USER INTERFACE, HUMAN PLAYERS
 
 FIXES

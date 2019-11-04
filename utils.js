@@ -256,21 +256,22 @@ const prepareBoard = () => {
   return board;
 }
 
-const diggersVictory = () => {
+const diggersVictory = (playersData) => {
   console.log('DIGGERS WIN');
+  finalReveal(playersData, null, false);
   process.exit(0);
 }
 
 const isGoldRevealed = (board) => board[targets[0]][10].accessible === true;
 
-const checkTargets = (board, i, j, withoutGold) => {
+const checkTargets = (board, i, j, playersData, withoutGold) => {
   const gold = board[targets[0]][10];
   const coalOne = board[targets[1]][10];
   const coalTwo = board[targets[2]][10];
 
   if (gold.accessible === true && !withoutGold) {
     graphBoard(board);
-    diggersVictory();
+    diggersVictory(playersData);
   }
   if (coalOne.accessible === true && coalOne.cardType < 0) {
     if (i < targets[1] || j < 10) {
@@ -335,20 +336,24 @@ const addKnowledge = (orgKnowledge, target, value) => {
   return knowledge;
 }
 
+const targetToString = (target) => {
+  if (target === 0) {
+    return 'top';
+  } else if (target === 1) {
+    return 'middle';
+  }
+  return 'bottom';
+}
+
 const makeClaim = (playersData, playerIndex, target, value, maxSaboteurs) => {
+  let descriptionString = '';
   if (playersData[playerIndex].role === 1) {
-    console.log('I claim nothing.');
+    descriptionString = 'Using map on ' + targetToString(target) + ', I refuse to say.';
     for (let i = 0; i < playersData.length; ++i) {
       updateKarmasValues(playersData[i].karmas, playerIndex, 100, maxSaboteurs);
     }
   } else {
-    if (target === 0) {
-      console.log('I claim top is ' + (value === 1 ? 'gold' : 'coal') + '.');
-    } else if (target === 1) {
-      console.log('I claim middle is ' + (value === 1 ? 'gold' : 'coal') + '.');
-    } else {
-      console.log('I claim bottom is ' + (value === 1 ? 'gold' : 'coal') + '.');
-    }
+    descriptionString = 'Using map on ' + targetToString(target) + ', it is ' + (value === 1 ? 'gold' : 'coal') + '.';
 
     for (let i = 0; i < playersData.length; ++i) {
       playersData[i].claims[playerIndex][target] = value;
@@ -359,6 +364,7 @@ const makeClaim = (playersData, playerIndex, target, value, maxSaboteurs) => {
       }
     }
   }
+  return descriptionString;
 }
 
 const useMap = (board, knowledge, propabilities) => {
@@ -507,6 +513,8 @@ const isNoClaimsMade = (claims) => {
 }
 
 const calculateTargetsPropabilities = (playersData, playerIndex, maxSaboteurs) => {
+  // console.log('AAAA BBBB CCCC DDDD');
+  // console.log(playersData, playerIndex, maxSaboteurs);
   const isSaboteur = playersData[playerIndex].role;
 
   for (let i = 0; i < playersData.length; ++i) {
@@ -670,8 +678,49 @@ const isAllPossibleMovesRockfalls = (outcomes) => {
   return true;
 }
 
+
+
+// const calculateDeepMoves = (playersData, playerIndex, maxSaboteurs, board, turnNo) => {
+//   const possibleMoves = [];
+
+//   let cardPossibilities = []
+
+//   for (let i = 0; i < possibleMoves.length; ++i) {
+//     for (let j = 0; j < possibleNewCardPosibilities.length; ++j) {
+
+//     }
+//   }
+// }
+
+const cloneArrayOneDim = (cards) => {
+  let clone = [];
+  for (let i = 0; i < cards.length; ++i) {
+    clone.push({...cards[i]});
+  }
+  return clone;
+}
+
+const clonePlayersData = (playersData) => {
+  const clone = [];
+  for (let i = 0; i < playersData.length; ++i) {
+    clone.push({
+      name: playersData[i].name,
+      id: playersData[i].id,
+      role: playersData[i].role,
+      pickaxe: playersData[i].pickaxe,
+      truck: playersData[i].truck,
+      lamp: playersData[i].lamp,
+      cards: cloneArrayOneDim(playersData[i].cards),
+      karmas: [...playersData[i].karmas],
+      claims: cloneClaims(playersData[i].claims),
+      targetsKnowledge: [...playersData[i].targetsKnowledge],
+      cardsAmountsInGame: {...playersData[i].cardsAmountsInGame}
+    })
+  }
+  return clone;
+}
+
 const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) => {
-  isFourthColumnReached(board);
   const cardsInHand = playersData[playerIndex].cards;
   const isSaboteur = playersData[playerIndex].role === 1;
   const propabilities = calculateTargetsPropabilities(playersData, playerIndex, maxSaboteurs);
@@ -691,21 +740,36 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
 
     if (cardsInHand[a].special === 'map') {
       if (isGoldKnown(knowledge)) {
+        let clonedPlayersData = clonePlayersData(playersData);
+        clonedPlayersData[playerIndex].cards.splice(a, 1);
+
+        updateKarmas(clonedPlayersData, playerIndex, 'throwaway', null, maxSaboteurs, null, null, null);
+
         outcomes.push({
           value: isSaboteur ? currentEvaluation + 0.01 : currentEvaluation - 0.01,
           board,
           cardIndex: a,
           operation: 'throwaway',
+          playersData: clonedPlayersData,
+          description: 'Discarding a card.'
         })
       } else if (!isSaboteur || turnNo > 3) {
         const { knowledge: obtainedKnowledge, target: obtainedTarget } = useMap(board, [...knowledge], [...propabilities]);
+        let clonedPlayersData = clonePlayersData(playersData);
+        clonedPlayersData[playerIndex].targetsKnowledge = obtainedKnowledge;
+        description = makeClaim(clonedPlayersData, playerIndex, obtainedTarget, clonedPlayersData[playerIndex].targetsKnowledge[obtainedTarget], maxSaboteurs);
+
+        clonedPlayersData[playerIndex].cards.splice(a, 1);
+
+        updateKarmas(clonedPlayersData, playerIndex, 'map', null, maxSaboteurs, null, null, null);
+
         outcomes.push({
           value: isSaboteur ? 99 : -99,
           board,
+          playersData: clonedPlayersData,
           cardIndex: a,
           operation: 'map',
-          knowledge: obtainedKnowledge,
-          target: obtainedTarget,
+          description,
         })
       }
     } else if (cardsInHand[a].type === 17 && (!isSaboteur || isFourthColumnReached(board))) {
@@ -717,12 +781,19 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
 
             const afterRockFallEvaluation = evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb);
 
-            if (!isSaboteur && afterRockFallEvaluation < currentEvaluation) {
+            if (isSaboteur || afterRockFallEvaluation < currentEvaluation) {
+              let clonedPlayersData = clonePlayersData(playersData);
+              clonedPlayersData[playerIndex].cards.splice(a, 1);
+
+              updateKarmas(clonedPlayersData, playerIndex, 'rockfall', 17, maxSaboteurs, board, clone);
+
               outcomes.push({
-                value: evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb) + (isSaboteur ? getCardConnections(board, i, j) : 0),
+                value: afterRockFallEvaluation + (isSaboteur ? getCardConnections(board, i, j) : 0),
                 cardIndex: a,
                 board: clone,
                 operation: 'rockfall',
+                playersData: clonedPlayersData,
+                description: 'Using rockfall on (' + i + ', ' + j + ').'
               });
             }
           }
@@ -756,13 +827,20 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
           moveValue -= (((playersData[playerIndex].karmas[possibleUses[i]]) * (isTargetAlreadyBlocked ? 1 : 5)) / 100);
         }
 
+        let clonedPlayersData = clonePlayersData(playersData);
+        clonedPlayersData[possibleUses[i]][stringBlock] = false;
+
+        clonedPlayersData[playerIndex].cards.splice(a, 1);
+
+        updateKarmas(clonedPlayersData, playerIndex, 'block', null, maxSaboteurs, null, null, possibleUses[i]);
+
         outcomes.push({
           value: moveValue,
           cardIndex: a,
           board,
           operation: 'block',
-          blockType: stringBlock,
-          blockTarget: possibleUses[i],
+          playersData: clonedPlayersData,
+          description: 'Blocking player ' + (possibleUses[i] + 1) + ' by ' + stringBlock + '.'
         })
       }
     } else if (cardsInHand[a].type >= 21) {
@@ -817,13 +895,19 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
           }
         }
 
+        let clonedPlayersData = clonePlayersData(playersData);
+        clonedPlayersData[possibleUsesOne[i]][stringFixOne] = true;
+        clonedPlayersData[playerIndex].cards.splice(a, 1);
+
+        updateKarmas(clonedPlayersData, playerIndex, 'fix', null, maxSaboteurs, null, null, possibleUsesOne[i]);
+
         outcomes.push({
           value: moveValue,
           cardIndex: a,
           board,
           operation: 'fix',
-          fixType: stringFixOne,
-          fixTarget: possibleUsesOne[i],
+          playersData: clonedPlayersData,
+          description: 'Fixing player ' + (possibleUsesOne[i] + 1) + ' from ' + stringFixOne + '.'
         })
       }
 
@@ -843,13 +927,19 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
           }
         }
 
+        let clonedPlayersData = clonePlayersData(playersData);
+        clonedPlayersData[possibleUsesTwo[i]][stringFixTwo] = true;
+        clonedPlayersData[playerIndex].cards.splice(a, 1);
+
+        updateKarmas(clonedPlayersData, playerIndex, 'fix', null, maxSaboteurs, null, null, possibleUsesTwo[i]);
+
         outcomes.push({
           value: moveValue,
           cardIndex: a,
           board,
           operation: 'fix',
-          fixType: stringFixTwo,
-          fixTarget: possibleUsesTwo[i],
+          playersData: clonedPlayersData,
+          description: 'Fixing player ' + (possibleUsesTwo[i] + 1) + ' from ' + stringFixTwo + '.'
         })
       }
 
@@ -861,21 +951,24 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
             if (canCardBeBuilt(board, cardsInHand[a], i, j, isSaboteur)) {
               clone = cloneBoard(board);
               buildCard(clone, cardsInHand[a], i, j, false);
-              checkTargets(clone, i, j, true);
+              checkTargets(clone, i, j, playersData, true);
               if (isGoldRevealed(clone)) {
                 value = -9999;
               } else {
                 value = evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb);
               }
+              let clonedPlayersData = clonePlayersData(playersData);
+              clonedPlayersData[playerIndex].cards.splice(a, 1);
+
+              updateKarmas(clonedPlayersData, playerIndex, 'build', cardsInHand[a].type, maxSaboteurs, board, clone, null);
+
               cardOutcomes.push({
                 value,
                 cardIndex: a,
                 board: clone,
-                flipped: false,
+                playersData: clonedPlayersData,
                 operation: 'build',
-                cardType: cardsInHand[a].type,
-                i,
-                j,
+                description: 'Building a card on (' + i + ', ' + j + ').'
               })
             }
 
@@ -883,21 +976,25 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
               if (canCardBeBuilt(board, flipped, i, j, isSaboteur)) {
                 clone = cloneBoard(board);
                 buildCard(clone, flipped, i, j, true);
-                checkTargets(clone, i, j, true);
+                checkTargets(clone, i, j, playersData, true);
                 if (isGoldRevealed(clone)) {
                   value = 0
                 } else {
                   value = evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb);
                 }
+                let clonedPlayersData = clonePlayersData(playersData);
+                clonedPlayersData[playerIndex].cards.splice(a, 1);
+
+                updateKarmas(clonedPlayersData, playerIndex, 'build', cardsInHand[a].type, maxSaboteurs, board, clone, null);
+
                 cardOutcomes.push({
                   value,
                   cardIndex: a,
-                  flipped: true,
+                  playersData: clonedPlayersData,
                   board: clone,
                   cardType: cardsInHand[a].type,
                   operation: 'build',
-                  i,
-                  j,
+                  description: 'Building a card on (' + i + ', ' + j + ').'
                 })
               }
             }
@@ -913,11 +1010,17 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
         if (usefulMoveIndx !== -1) {
           outcomes = [...outcomes, ...cardOutcomes];
         } else {
+          clonedPlayersData = clonePlayersData(playersData);
+          clonedPlayersData[playerIndex].cards.splice(a, 1);
+          updateKarmas(clonedPlayersData, playerIndex, 'throwaway', null, maxSaboteurs, null, null, null);
+
           outcomes.push({
             value: isSaboteur ? currentEvaluation + 0.01 : currentEvaluation - 0.01,
             board,
+            playersData: clonedPlayersData,
             cardIndex: a,
             operation: 'throwaway',
+            description: 'Discarding a card.'
           })
         }
       }
@@ -948,11 +1051,18 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
       return 0;
     });
 
+    let clonedPlayersData = clonePlayersData(playersData);
+    clonedPlayersData[playerIndex].cards.splice(relativeCardValues[0].index, 1);
+
+    updateKarmas(clonedPlayersData, playerIndex, 'throwaway', null, maxSaboteurs, null, null, null);
+
     outcomes.push({
       value: currentEvaluation + relativeCardValues[0].value,
       board,
+      playersData: clonedPlayersData,
       cardIndex: relativeCardValues[0].index,
       operation: 'throwaway',
+      description: 'Discarding a card.'
     })
   }
 
@@ -1290,6 +1400,40 @@ const removeCardFromCardsAmounts = (cardsAmounts, cardType) => {
    cardsAmounts[cardType] -= 1;
 }
 
+const getCardPossibilities = (cardsAmounts) => {
+  let possibilities = {};
+
+  let remainingCards = 0;
+  Object.keys(cardsAmounts).forEach((el) => {
+    remainingCards += cardsAmounts[el];
+  });
+
+  Object.keys(cardsAmounts).forEach((el) => {
+    possibilities[el] = cardsAmounts[el] / remainingCards;
+  });
+
+  return possibilities;
+}
+
+const finalReveal = (playersInfo, board, showTargets) => {
+  console.log(' ');
+  for (let i = 0; i < playersInfo.length; ++i) {
+    console.log(playersInfo[i].name + ' was a ' + (playersInfo[i].role ? 'saboteur' : 'digger') + '.');
+  }
+  if (showTargets) {
+    console.log(' ');
+    if (board[3][10].cardType === -3) {
+      console.log('Gold was on top.');
+    }
+    if (board[5][10].cardType === -3) {
+      console.log('Gold was on middle.');
+    }
+    if (board[7][10].cardType === -3) {
+      console.log('Gold was on bottom.');
+    }
+  }
+}
+
 module.exports = { 
   boardPiece, 
   cloneBoard, 
@@ -1322,5 +1466,6 @@ module.exports = {
   sabsNoChances,
   initiateCardsAmounts,
   removeCardFromCardsAmounts,
+  finalReveal,
   targets,
 }
