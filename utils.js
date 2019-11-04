@@ -622,7 +622,56 @@ const shouldConsiderFix = (playersData, playerIndex, targetIndex) => {
   return false;
 }
 
+const isFourthColumnReached = (board) => {
+  for (let i = 0; i < board.length; ++i) {
+    if (board[i][6].cardType !== -1) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const getCardConnections = (board, i, j) => {
+  let connections = 0;
+
+  if (i > 0 && board[i][j].outUp) {
+    ++connections;
+    if (board[i - 1][j].outDown) {
+      connections += 2;
+    }
+  }
+  if (i < boardHeight && board[i][j].outDown) {
+    ++connections;
+    if (board[i + 1][j].outUp) {
+      connections += 2;
+    }
+  }
+  if (j > 0 && board[i][j].outLeft) {
+    ++connections;
+    if (board[i][j - 1].outRight) {
+      connections += 2;
+    }
+  }
+  if (j < boardWidth && board[i][j].outRight) {
+    ++connections;
+    if (board[i][j + 1].outLeft) {
+      connections += 2;
+    }
+  }
+  return connections;
+}
+
+const isAllPossibleMovesRockfalls = (outcomes) => {
+  for (let i = 0; i < outcomes.length; ++i) {
+    if (outcomes.operation !== 'rockfall') {
+      return false;
+    }
+  }
+  return true;
+}
+
 const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) => {
+  isFourthColumnReached(board);
   const cardsInHand = playersData[playerIndex].cards;
   const isSaboteur = playersData[playerIndex].role === 1;
   const propabilities = calculateTargetsPropabilities(playersData, playerIndex, maxSaboteurs);
@@ -659,18 +708,23 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
           target: obtainedTarget,
         })
       }
-    } else if (cardsInHand[a].type === 17) {
+    } else if (cardsInHand[a].type === 17 && (!isSaboteur || isFourthColumnReached(board))) {
       for (let i = 0; i < board.length; ++i) {
         for (let j = 0; j < board[i].length; ++j) {
           if (!(j === 10 && i === targets[1]) && !(j === 10 && i === targets[2]) && board[i][j].type >= 0 && board[i][j].type <= 15) {
             clone = cloneBoard(board);
             doRockFall(clone, i, j);
-            outcomes.push({
-              value: evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb),
-              cardIndex: a,
-              board: clone,
-              operation: 'rockfall',
-            });
+
+            const afterRockFallEvaluation = evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb);
+
+            if (!isSaboteur && afterRockFallEvaluation < currentEvaluation) {
+              outcomes.push({
+                value: evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb) + (isSaboteur ? getCardConnections(board, i, j) : 0),
+                cardIndex: a,
+                board: clone,
+                operation: 'rockfall',
+              });
+            }
           }
         }
       }
@@ -877,6 +931,8 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
         relativeCardValues[i] = { value: isSaboteur ? 3 : 2, index: i };
       } else if (cardsInHand[i].type >= 18 && cardsInHand[i].type <= 20) {
         relativeCardValues[i] = { value: isSaboteur ? 2 : 3, index: i };
+      } else if (cardsInHand[i].type === 17) {
+        relativeCardValues[i] = { value: isSaboteur ? 0 : 10, index: i };
       } else {
         relativeCardValues[i] = { value: (cardsInHand[i].outUp ? 1 : 0) + (cardsInHand[i].outRight ? 1.5 : 0) + (cardsInHand[i].outLeft ? 1.5 : 0) + (cardsInHand[i].outDown ? 1 : 0), index: i };
       }
@@ -911,10 +967,6 @@ const calculateMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) =>
   });
 
   const bestMove = outcomes[0];
-
-  if (!isSaboteur && bestMove.operation === 'rockfall') {
-    console.log(outcomes);
-  }
 
   return bestMove;
 }
@@ -1198,6 +1250,46 @@ const getToolsChangePossibleUses = (playersData, playerIndex, tool, newStatus) =
   return possibleUsesArray;
 }
 
+const initiateCardsAmounts = (cardsInHand) => {
+  const cardsAmounts = {
+    0: 1,
+    1: 1,
+    2: 1,
+    3: 1,
+    4: 1,
+    5: 4,
+    6: 5,
+    7: 5,
+    8: 3,
+    9: 1,
+    10: 1,
+    11: 5,
+    12: 1,
+    13: 1,
+    14: 5,
+    15: 4,
+    16: 6,
+    17: 3,
+    18: 3,
+    19: 3,
+    20: 3, 
+    21: 2,
+    22: 2,
+    23: 2,
+    24: 1,
+    25: 1,
+    26: 1,
+  }
+  for (let i = 0; i < cardsInHand.length; ++i) {
+    cardsAmounts[cardsInHand[i].type] -= 1;
+  }
+  return cardsAmounts;
+}
+
+const removeCardFromCardsAmounts = (cardsAmounts, cardType) => {
+   cardsAmounts[cardType] -= 1;
+}
+
 module.exports = { 
   boardPiece, 
   cloneBoard, 
@@ -1228,5 +1320,7 @@ module.exports = {
   updateKarmas,
   makeClaim,
   sabsNoChances,
+  initiateCardsAmounts,
+  removeCardFromCardsAmounts,
   targets,
 }

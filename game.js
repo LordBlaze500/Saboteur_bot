@@ -31,6 +31,8 @@ const {
   updateKarmas,
   makeClaim,
   sabsNoChances,
+  initiateCardsAmounts,
+  removeCardFromCardsAmounts,
   targets,
 } = require('./utils');
 
@@ -53,8 +55,13 @@ for (let i = 0; i < playersNo; ++i) {
     cards: [shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop()],
     karmas: initiateKarmas(playersNo, roles[i], maxSaboteurs, i, playersConfigs[playersNo]),
     claims: getClaimsArray(playersNo),
-    targetsKnowledge: [0, 0, 0]
+    targetsKnowledge: [0, 0, 0],
+    cardsAmountsInGame: [],
   })
+}
+
+for (let i = 0; i < playersNo; ++i) {
+  playersData[i].cardsAmountsInGame = initiateCardsAmounts(playersData[i].cards);
 }
 
 let turnNo = 1;
@@ -139,9 +146,19 @@ while (playersData[playersNo - 1].cards.length > 0) {
     //   console.log(playersData[i].targetsKnowledge);
     // }
 
+    if (move.operation !== 'throwaway') {
+      for (let j = 0; j < playersNo; ++j) {
+        if (i !== j) {
+          removeCardFromCardsAmounts(playersData[j].cardsAmountsInGame, playersData[i].cards[move.cardIndex].type);
+        }
+      }
+    }
+
     playersData[i].cards.splice(move.cardIndex, 1);
+
     if (shuffled.length > 0) {
       playersData[i].cards.push(shuffled.pop());
+      removeCardFromCardsAmounts(playersData[i].cardsAmountsInGame, playersData[i].cards[playersData[i].cards.length - 1].type);
     }
   }
 }
