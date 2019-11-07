@@ -34,6 +34,8 @@ const {
   initiateCardsAmounts,
   removeCardFromCardsAmounts,
   finalReveal,
+  getInitialStrategy,
+  getBestMove,
   targets,
 } = require('./utils');
 
@@ -64,19 +66,11 @@ for (let i = 0; i < playersNo; ++i) {
 
 for (let i = 0; i < playersNo; ++i) {
   playersData[i].cardsAmountsInGame = initiateCardsAmounts(playersData[i].cards);
+  playersData[i].strategy = getInitialStrategy(playersData, i);
+  console.log(playersData[i].strategy);
 }
 
 let turnNo = 1;
-
-if (targets[0] === 3) {
-  console.log('GOLD TOP');
-}
-if (targets[0] === 5) {
-  console.log('GOLD MIDDLE');
-}
-if (targets[0] === 7) {
-  console.log('GOLD BOTTOM');
-}
 
 let oldBoard = null;
 let move = null;
@@ -84,22 +78,114 @@ let saboteurNo = 1;
 let diggerNo = 1;
 let operationTarget = null;
 
+const getCardsDescriptions = (card) => {
+  let descriptions = [];
+  for (let i = 0; i < card.length; ++i) {
+    if (card[i].type === 0) {
+        descriptions.push('┼');
+      }
+      if (card[i].type === 1) {
+        descriptions.push('┴');
+      }
+      if (card[i].type === 2) {
+        descriptions.push('┤');
+      }
+      if (card[i].type === 12) {
+        descriptions.push('┘');
+      }
+      if (card[i].type === 3) {
+        descriptions.push('│');
+      }
+      if (card[i].type === 4) {
+        descriptions.push('¡');
+      }
+      if (card[i].type === 5) {
+        descriptions.push('║');
+      }
+      if (card[i].type === 6) {
+        descriptions.push('╬');
+      }
+      if (card[i].type=== 7) {
+        descriptions.push('╩');
+      }
+      if (card[i].type === 8) {
+        descriptions.push('═');
+      }
+      if (card[i].type === 9) {
+        descriptions.push('─');
+      }
+      if (card[i].type === 10) {
+        descriptions.push('»');
+      }
+      if (card[i].type === 11) {
+        descriptions.push('╚');
+      }
+      if (card[i].type === 13) {
+        descriptions.push('└');
+      }
+      if (card[i].type === 14) {
+        descriptions.push('╣');
+      }
+      if (card[i].type === 15) {
+        descriptions.push('╝');
+      }
+      if (card[i].type === 16) {
+        descriptions.push('map');
+      }
+      if (card[i].type === 17) {
+        descriptions.push('rockfall');
+      }
+      if (card[i].type === 18) {
+        descriptions.push('break_pickaxe');
+      }
+      if (card[i].type === 19) {
+        descriptions.push('break_truck');
+      }
+      if (card[i].type === 20) {
+        descriptions.push('break_lamp');
+      }
+      if (card[i].type === 21) {
+        descriptions.push('fix_pickaxe');
+      }
+      if (card[i].type === 22) {
+        descriptions.push('fix_truck');
+      }
+      if (card[i].type === 23) {
+        descriptions.push('fix_lamp');
+      }
+      if (card[i].type === 24) {
+        descriptions.push('fix_truck_lamp');
+      }
+      if (card[i].type === 25) {
+        descriptions.push('fix_pickaxe_truck');
+      }
+      if (card[i].type === 26) {
+        descriptions.push('fix_pickaxe_lamp');
+      }
+  }
+  return descriptions;
+}
+
 while (playersData[playersNo - 1].cards.length > 0) {
 
   operationTarget = null;
 
   console.log(' ');
-  console.log('TURN ' + turnNo++);
+  console.log('TURN ' + turnNo);
+  console.log('Cards in deck: ' + shuffled.length);
+  console.log(' ');
   saboteurNo = 1;
   diggerNo = 1;
   for (let i = 0; i < playersNo; ++i) {
     // console.log(' ');
     // console.log((playersData[i].role === 1 ? 'Saboteur ' + saboteurNo++  : 'Digger ' + diggerNo++) + ', player ' + (i + 1));
-    console.log('Player ' + (i+1) + ', ' + playersData[i].name);
+    console.log('Player ' + (i + 1) + ', "' + playersData[i].name + '"');
 
-    console.log(playersData[i].pickaxe + ' ' + playersData[i].truck + ' ' + playersData[i].lamp);
+    console.log('Pickaxe: ' + playersData[i].pickaxe + ', truck: ' + playersData[i].truck + ', lamp: ' + playersData[i].lamp);
 
-    move = calculateMove(playersData, i, maxSaboteurs, board, turnNo);
+    console.log(getCardsDescriptions(playersData[i].cards));
+
+    move = getBestMove(playersData, i, maxSaboteurs, board, turnNo);
     oldBoard = cloneBoard(board);
 
     board = move.board;
@@ -107,21 +193,27 @@ while (playersData[playersNo - 1].cards.length > 0) {
 
     console.log(move.description);
 
-    // console.log('PROBABILITIEs');
-    // console.log(calculateTargetsPropabilities(playersData, i, maxSaboteurs));
+    console.log('PROBABILITIEs');
+    console.log(calculateTargetsPropabilities(playersData, i, maxSaboteurs));
+
+    // console.log('CLAIMS');
+    // for (let i = 0; i < playersData.length; ++i) {
+    //   console.log(playersData[i].claims);
+    // }
 
     checkTargets(board, move.i, move.j, playersData);
     
     graphBoard(board);
-    // console.log('KARMAS');
-    // for (let i = 0; i < playersNo; ++i) {
-    //   console.log(playersData[i].karmas);
-    // }
+    console.log('KARMAS');
+    for (let i = 0; i < playersNo; ++i) {
+      console.log(playersData[i].karmas);
+    }
 
     if (shuffled.length > 0) {
       playersData[i].cards.push(shuffled.pop());
     }
   }
+  ++turnNo;
 }
 
 console.log('SABOTEURS WIN');

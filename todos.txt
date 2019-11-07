@@ -3,22 +3,20 @@ KEEP THE CODE UGLY BUT FAST (e.g. [0,0,1] = good. { top: false, middle: false, b
 FEATURES
  - saboteurBlaims
  - chat/communication, promises
- - game analysis/"help me" button
+ - game analysis/"help me" button, move and explanation
  - PRECISE CHANGING KARMA, EVALUATE MOVES
  - re-evaluate past moves based on new info
- - storing how many cards were used
- - saboteurs lying what was under target card / refusing to claim
- - INITIAL STRATEGIES: digger, saboteur_aggressive, saboteur_passive, saboteur_liar
  - when human players: saboteurs spam-lies chat
  - estimatedSelfKarma/isOuted
  - 3 rounds, points (gold nuggets) for victory
  - USER INTERFACE, HUMAN PLAYERS
 
 FIXES
- - rockfall on good tunnels when a digger
  - if no coals discovered, add two possibilities to consider when reaching coal
 
 NON-FEATURE TODOS
+ - clean exports
+ - remove unused arguments, outcomes.push parameters
  - 9999 / -9999 -> infinity / negative infinity
  - pickaxe, truck, lamp -> tools: [1,1,1]
  - Math.floor -> Math.round
