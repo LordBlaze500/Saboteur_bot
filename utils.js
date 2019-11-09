@@ -1,5 +1,10 @@
 const { deck } = require('./deck');
 const { graphBoard } = require('./graphBoard');
+const fs = require('fs');
+
+const debug = true;
+let debugTurn = 1;
+let debugPlayer = 1;
 
 const boardPiece = {
   cardType: -1,
@@ -125,7 +130,7 @@ const canCardBeBuilt = (board, card, i, j) => {
   clone[3][10] = {...boardPiece};
   clone[5][10] = {...boardPiece};
   clone[7][10] = {...boardPiece};
-  if (clone[i][j].cardType !== -1 || clone[i][j].buildable !== true || clone[i][j].accessible !== true || card.type >= 15) {
+  if (clone[i][j].cardType !== -1 || clone[i][j].buildable !== true || clone[i][j].accessible !== true || card.type > 15) {
     return false;
   }
   if (i > 0 && clone[i - 1][j].cardType !== -1 && card.inUp !== clone[i - 1][j].inDown) {
@@ -356,27 +361,21 @@ const findClaimsConflicts = (playersData, maxSaboteurs) => {
     for (let j = 0; j < playersData.length; ++j) {
       if (j !== i) {
         if (ownKnowledge[0] === 1 && playersData[i].claims[j][0] === -1) {
-          console.log('A');
           playersData[i].karmas = updateKarmasValues(playersData[i].karmas, j, 100, maxSaboteurs);
         }
         if (ownKnowledge[0] === -1 && playersData[i].claims[j][0] === 1) {
-          console.log('b');
           playersData[i].karmas = updateKarmasValues(playersData[i].karmas, j, 100, maxSaboteurs);
         }
         if (ownKnowledge[1] === 1 && playersData[i].claims[j][1] === -1) {
-          console.log('c');
           playersData[i].karmas = updateKarmasValues(playersData[i].karmas, j, 100, maxSaboteurs);
         }
         if (ownKnowledge[1] === -1 && playersData[i].claims[j][1] === 1) {
-          console.log('d');
           playersData[i].karmas = updateKarmasValues(playersData[i].karmas, j, 100, maxSaboteurs);
         }
         if (ownKnowledge[2] === 1 && playersData[i].claims[j][2] === -1) {
-          console.log('e');
           playersData[i].karmas = updateKarmasValues(playersData[i].karmas, j, 100, maxSaboteurs);
         }
         if (ownKnowledge[2] === -1 && playersData[i].claims[j][2] === 1) {
-          console.log('f');
           playersData[i].karmas = updateKarmasValues(playersData[i].karmas, j, 100, maxSaboteurs);
         }
       }
@@ -725,32 +724,36 @@ const clonePlayersData = (playersData) => {
   return clone;
 }
 
+const getCardAggressiveness = (playersData, playerIndex) => {
+  let hasDeadEnd = false;
+  let aggressiveCardsValues = 0;
+  let card = null;
+  for (let i = 0; i < playersData[playerIndex].cards.length; ++i) {
+    card = playersData[playerIndex].cards[i];
+    if ((card.type >= 0 && card.type <= 2) || card.type === 9 || card.type === 10 || card.type === 12 || card.type === 13)
+      hasDeadEnd = true;
+    else if (card.type === 16) { // map
+      aggressiveCardsValues += 2;
+    } else if (card.type === 17) { // rockfall
+      aggressiveCardsValues += 2;
+    } else if (card.type >= 18 && card.type <= 20) { // breaks
+      aggressiveCardsValues += 2;
+    } else if (card.type >= 21 && card.type <= 23) { // single fixes
+      aggressiveCardsValues += 0.5;
+    } else if (card.type >= 24) { // double fixes
+      aggressiveCardsValues += 1;
+    } else if (card.type === 6) { // cross
+      aggressiveCardsValues += 1;
+    } else if (card.type === 7) { // left right up
+      aggressiveCardsValues += 0.5;
+    }
+  }
+  return { hasDeadEnd, aggressiveCardsValues };
+}
+
 const getInitialStrategy = (playersData, playerIndex) => {
   if (playersData[playerIndex].role === 1) {
-    let hasDeadEnd = false;
-    let aggressiveCardsValues = 0;
-    let card = null;
-    for (let i = 0; i < playersData[playerIndex].cards.length; ++i) {
-
-      card = playersData[playerIndex].cards[i];
-      if ((card.type >= 0 && card.type <= 2) || card.type === 9 || card.type === 10 || card.type === 12 || card.type === 13)
-        hasDeadEnd = true;
-      else if (card.type === 16) { // map
-        aggressiveCardsValues += 2;
-      } else if (card.type === 17) { // rockfall
-        aggressiveCardsValues += 2;
-      } else if (card.type >= 18 && card.type <= 20) { // breaks
-        aggressiveCardsValues += 2;
-      } else if (card.type >= 21 && card.type <= 23) { // single fixes
-        aggressiveCardsValues += 0.5;
-      } else if (card.type >= 24) { // double fixes
-        aggressiveCardsValues += 1;
-      } else if (card.type === 6) { // cross
-        aggressiveCardsValues += 1;
-      } else if (card.type === 7) { // left right up
-        aggressiveCardsValues += 0.5;
-      }
-    }
+    const { hasDeadEnd, aggressiveCardsValues } = getCardAggressiveness(playersData, playerIndex);
     return (hasDeadEnd && aggressiveCardsValues >= 4) ? 'saboteur_aggressive' : 'saboteur_passive';
   } else {
     return 'digger';
@@ -758,16 +761,62 @@ const getInitialStrategy = (playersData, playerIndex) => {
 }
 
 const getRelativeCardValue = (card, isSaboteur) => {
-  if (card.type >= 21) { // fix
-    return isSaboteur ? -2 : 2;
-  } else if (card.type >= 18 && card.type <= 20) { // break
-    return isSaboteur ? -3 : 3;
-  } else if (card.type === 17) { // rockfall
-    return isSaboteur ? -9999 : 9999;
-  } else if (card.type === 16) { // map
-    return isSaboteur ? 9999 : -9999;
+  if (isSaboteur) {
+    if (card.type === 16) {
+      return 12;
+    } else if (card.type === 6) {
+      return 11;
+    } else if (card.type == 7) {
+      return 10;
+    } else if (card.type === 8) {
+      return 9;
+    } else if (card.type === 14) {
+      return 8;
+    } else if (card.type === 15) {
+      return 7;
+    } else if (card.type === 11) {
+      return 6;
+    } else if (card.type === 5) {
+      return 5;
+    } else if (card.type === 17) {
+      return 0;
+    } else if (card.type >= 18 && card.type <= 20) {
+      return 1;
+    } else if (card.type >= 21 && card.type <= 23) {
+      return 2;
+    } else if (card.type >= 24) {
+      return 3;
+    } else {
+      return 4;
+    }
   } else {
-    return (card.outUp ? 1 : 0) + (card.outRight ? 1.5 : 0) + (card.outLeft ? 1.5 : 0) + (card.outDown ? 1 : 0);
+    if (card.type === 16) {
+      return 0;
+    } else if (card.type === 6) {
+      return 11;
+    } else if (card.type == 7) {
+      return 10;
+    } else if (card.type === 8) {
+      return 9;
+    } else if (card.type === 14) {
+      return 5;
+    } else if (card.type === 15) {
+      return 3;
+    } else if (card.type === 11) {
+      return 4;
+    } else if (card.type === 5) {
+      return 2;
+    } else if (card.type === 17) {
+      return 12;
+    } else if (card.type >= 18 && card.type <= 20) {
+      return 6;
+    } else if (card.type >= 21 && card.type <= 23) {
+      return 7;
+    } else if (card.type >= 24) {
+      return 8;
+    } else {
+      return 1;
+    }
   }
 }
 
@@ -775,8 +824,8 @@ const initialStrategyMove = (playersData, playerIndex, maxSaboteurs, board, turn
   const strategy = playersData[playerIndex].strategy;
   const cards = playersData[playerIndex].cards;
   const propabilities = calculateTargetsPropabilities(playersData, playerIndex, maxSaboteurs);
-  const currentEvaluation = evaluateBoard(board, propabilities[0], propabilities[1], propabilities[2]);
-  const possibleMoves = calculateMovesDeepValue(playersData, playerIndex, maxSaboteurs, board);
+  const currentEvaluation = evaluateBoard(board, propabilities[0], propabilities[1], propabilities[2], true);
+  const possibleMoves = calculateMovesDeepValue(playersData, playerIndex, maxSaboteurs, board, false, strategy === 'saboteur_passive');
   let move = null;
   const confirmedSabs = playersData[playerIndex].karmas.map((el, key) => (el === 100 ? key : null)).filter((el) => el != null); 
   const confirmedDiggers = playersData[playerIndex].karmas.map((el, key) => (el === 0 ? key : null)).filter((el) => el != null);
@@ -799,7 +848,7 @@ const initialStrategyMove = (playersData, playerIndex, maxSaboteurs, board, turn
         possibleMoves[i].priority = 6;
       } else if (move.operation === 'throwaway') {
         possibleMoves[i].priority = 7;
-        possibleMoves[i].value = getRelativeCardValue(cards[possibleMoves[i].cardIndex], false);
+        // possibleMoves[i].value = getRelativeCardValue(cards[possibleMoves[i].cardIndex], false);
       } else {
         possibleMoves[i].priority = 8;
       }
@@ -837,7 +886,7 @@ const initialStrategyMove = (playersData, playerIndex, maxSaboteurs, board, turn
         possibleMoves[i].priority = 6;
       } else if (move.operation === 'throwaway') {
         possibleMoves[i].priority = 7;
-        possibleMoves[i].value = getRelativeCardValue(cards[possibleMoves[i].cardIndex], false);
+        // possibleMoves[i].value = getRelativeCardValue(cards[possibleMoves[i].cardIndex], true);
       } else {
         possibleMoves[i].priority = 8;
       }
@@ -865,6 +914,8 @@ const initialStrategyMove = (playersData, playerIndex, maxSaboteurs, board, turn
         possibleMoves[i].priority = 4;
         possibleMoves[i].playersData[playerIndex].strategy = 'saboteur_aggressive';
       } else if (move.operation === 'map' && JSON.stringify(playersData[playerIndex].targetsKnowledge) === JSON.stringify([0,0,0])) {
+        console.log('KNOWLEDGE STRNGIFY');
+        console.log(JSON.stringify(playersData[playerIndex].targetsKnowledge));
         possibleMoves[i].priority = 1;
       } else if (move.operation === 'rockfall') {
         possibleMoves[i].priority = 6;
@@ -880,7 +931,10 @@ const initialStrategyMove = (playersData, playerIndex, maxSaboteurs, board, turn
         possibleMoves[i].playersData[playerIndex].strategy = 'saboteur_aggressive';
       } else if (move.operation === 'throwaway' && !isDeadEndCard(cards[move.cardIndex].type)) {
         possibleMoves[i].priority = 2;
-        possibleMoves[i].value = getRelativeCardValue(cards[possibleMoves[i].cardIndex], false);
+        // console.log('THROW VALUE');
+        // console.log(cardIndex);
+        // console.log()
+        // possibleMoves[i].value = getRelativeCardValue(cards[possibleMoves[i].cardIndex], true);
       } else {
         possibleMoves[i].priority = 8;
       }
@@ -910,11 +964,23 @@ const initialStrategyMove = (playersData, playerIndex, maxSaboteurs, board, turn
     }
   }
 
-  if (currentEvaluation <= 5 && strategy === 'saboteur_passive') {
+  const { hasDeadEnd, aggressiveCardsValues } = getCardAggressiveness(playersData, playerIndex);
+  if (strategy === 'saboteur_passive' && (isFourthColumnReached(board) || (hasDeadEnd && aggressiveCardsValues >= 4))) {
     possibleMoves[0].playersData[playerIndex].strategy = 'saboteur_aggressive';
   }
 
   // console.log(possibleMoves);
+
+  if (debug) {
+    const ccc = possibleMoves.map((el) => ({...el, board: null, playersData: null}));
+    fs.writeFileSync('turn_' + debugTurn + '_' + debugPlayer + '.txt', JSON.stringify(ccc, null, 2), 'utf-8');
+    if (debugPlayer === 5) {
+      debugTurn++;
+      debugPlayer = 1;
+    } else {
+      debugPlayer++;
+    }
+  }
   
   return possibleMoves[0];
 }
@@ -948,7 +1014,17 @@ const getBestMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) => {
   if (!areRolesClear(playersData, playerIndex)) { // start
     return initialStrategyMove(playersData, playerIndex, maxSaboteurs, board, turnNo);
   } else if (true) { // middle-game
-    const move = calculateMovesDeepValue(playersData, playerIndex, maxSaboteurs, board)[0];
+    const move = calculateMovesDeepValue(playersData, playerIndex, maxSaboteurs, board, false, false)[0];
+    if (debug) {
+      const ccc = calculateMovesDeepValue(playersData, playerIndex, maxSaboteurs, board, false, false).map((el) => ({...el, board: null, playersData: null}));
+      fs.writeFileSync('turn_' + debugTurn + '_' + debugPlayer + '.txt', JSON.stringify(ccc, null, 2), 'utf-8');
+      if (debugPlayer === 5) {
+        debugTurn++;
+        debugPlayer = 1;
+      } else {
+        debugPlayer++;
+      }
+    }
     if (move.operation === 'throwaway') {
     removeCardFromCardsAmounts(move.playersData[playerIndex].cardsAmountsInGame, playersData[playerIndex].cards[move.cardIndex].type);
     } else {
@@ -981,13 +1057,11 @@ const getReplacementPossibility = (playersData, playerIndex, board, i, j) => {
 
 // dodaj przeczekanie gdy jest dziura, oblicz prawdopodobienstwo
 
-// promo za fixa = jesli masz karty do budowy wlasne to fixuj siebie, jak nie to innych, wartosci okolo 1.0-1.5, zalezy czy to calkiem odbloczy, fix do przodu
-
-// ENDGAME STRATEGY
+// ENDGAME STRATEGY (isFourthColumnReached)
+// ustaw saboteur_aggressive
+// ustaw karmy na 0 i 100 na podstawie prawdopodobienstw
 // tylko ostatni X sie liczy, napraw buga ze nie chca zawracac
-// 
-
-// evaluateBoard eksperymentuj z oba returnami
+// obliczaj potencjalne konce gry dla zlych i jak wymanewrować najlepiej
 
 // ZBIERZ WSZYSTKIE WARTOSCI ARBITRALNE I WYPISZ JE NA GORZE PLIKU POD OPTYMALIZACJE
 
@@ -1001,7 +1075,7 @@ const getReplacementPossibility = (playersData, playerIndex, board, i, j) => {
 
 // lie only if cant be busted by a confirmed digger
 
-// middle game -> buduj w zlych miejscach zamiast throwowac (isSaboteur === true)
+// buduj useless karty jako saboteur w innym miejscu niz przy starcie
 
 // discard +0.05
 
@@ -1011,19 +1085,131 @@ const getReplacementPossibility = (playersData, playerIndex, board, i, j) => {
 
 // prefer straight over crosses when initial rows
 
+// healowanie NIE-SIEBIE mniej warte niz budowa
+
+// double block mniej warty niz budowa
+
 // jesli mniej niz X kart do konca to heal na yolo the least carma
 
+// jesli saboteur_passive & same slepe, blocki i heale -> aggressive przed zrobieniem ruchu
+
+// fix claiming golds twice bug
+
+// ulepsz getReplacementPossibility
+
+// fixing after a rockfall -> confirmed good
+
+// if distance gold <= 2 switch to final strategy, regardless of conditions of initial strategy
+
 // REWRITE KARMAS TO -1 0 1
+
+const flattenNodesTree = (nodes) => {
+  let result = [];
+  for (let i = 0; i < nodes.length; ++i) {
+    result = [...result, nodes[i], ...flattenNodesTree(nodes[i].children)];
+  }
+  return result;
+}
+
+const findShortestPath = (board, cards, probs, currentEvaluation) => {
+  let filteredCards = cards.filter((el) => !isDeadEndCard(el.type));
+
+  let clone = null;
+  let flipped = null;
+  let theCard = null;
+  let nodes = [];
+  nodes.push({ root: true, children: x(board, filteredCards, probs, currentEvaluation, 'root') });
+
+  let results = flattenNodesTree(nodes[0].children);
+
+  results.sort((a, b) => {
+    if (a.value > b.value) {
+      return 1;
+    }
+    if (b.value > a.value) {
+      return -1;
+    }
+    return 0;
+  })
+  if (results[0] && results[0].value < currentEvaluation) {
+    console.log('RESULT 0');
+    console.log(results[0]);
+    if (results[0].parent === 'root') {
+      return {
+        cardType: results[0].type,
+        i: results[0].i,
+        j: results[0].j,
+        flipped: !!results[0].flipped,
+      }
+    } else {
+      console.log('WORKAORUND RESULT');
+      console.log(results[0]);
+      let splitString = results[0].parent.split(' ')[1];
+      return {
+        cardType: parseInt(splitString.split('_')[0], 10),
+        i: parseInt(splitString.split('_')[1], 10),
+        j: parseInt(splitString.split('_')[2], 10),
+        flipped: (splitString.split('_')[3] === 'f')
+      }
+    }
+  }
+  return null;
+}
+
+const cloneCards = (cards) => {
+  let clone = [];
+  for (let i = 0; i < cards.length; ++i) {
+    clone.push({...cards[i]});
+  }
+  return clone;
+}
+
+const x = (board, cards, probs, currentEvaluation, parent) => {
+  let clone = null;
+  let clonedCards = null;
+  let theCard = null;
+  let abc = [];
+  let value = null;
+  for (let a = 0; a < cards.length; ++a) {
+    theCard = cards[a];
+    for (let i = 0; i < board.length; ++i) {
+      for (let j = 0; j < board[i].length; ++j) {
+        if (theCard.flippable) {
+          flipped = flipCard({...theCard});
+          if (canCardBeBuilt(board, flipped, i, j)) {
+            clone = cloneBoard(board);
+            buildCard(clone, flipped, i, j);
+            clonedCards = cloneCards(cards);
+            clonedCards.splice(a, 1);
+            value = evaluateBoard(clone, probs[0], probs[1], probs[2], true);
+            if (value !== currentEvaluation) {
+              abc.push({ type: flipped.type, flipped: true, i, j, value, parent, children: x(clone, clonedCards, probs, value, parent + ' ' + theCard.type + '_' + i + '_' + j + '_f') });
+            }
+          }
+        }
+
+        if (canCardBeBuilt(board, theCard, i, j)) {
+          clone = cloneBoard(board);
+          buildCard(clone, theCard, i, j);
+          clonedCards = cloneCards(cards);
+          clonedCards.splice(a, 1);
+          value = evaluateBoard(clone, probs[0], probs[1], probs[2], true);
+          if (value !== currentEvaluation) {
+            abc.push({ type: theCard.type, flipped: false, i, j, value, parent, children: x(clone, clonedCards, probs, value, parent + ' ' + theCard.type + '_' + i + '_' + j) });
+          }
+        }
+      }
+    }
+  }
+  return abc;
+}
 
 const isSelfWorthFixing = (playersData, playerIndex, maxSaboteurs, board, currentEvaluation, isSaboteur) => {
   const clonedPlayersData = clonePlayersData(playersData);
   clonedPlayersData[playerIndex].pickaxe = true;
   clonedPlayersData[playerIndex].truck = true;
   clonedPlayersData[playerIndex].lamp = true;
-  let moves = calculateMovesDeepValue(clonedPlayersData, playerIndex, maxSaboteurs, board, true);
-  // console.log('IS SELF');
-  // console.log(clonedPlayersData[playerIndex]);
-  // console.log(moves);
+  let moves = calculateMovesDeepValue(clonedPlayersData, playerIndex, maxSaboteurs, board, true, false);
   moves = moves.filter((el) => el.operation === 'build' && (isSaboteur ? el.value > currentEvaluation : el.value < currentEvaluation));
   return moves.length > 0;
 }
@@ -1065,11 +1251,11 @@ const getValueForBreak = (playersData, playerIndex, target, isSaboteur) => {
     currentIndex = getNextPlayerIndex(playersData.length, currentIndex);
   }
 
-  const numericalValue = (isTargetAlreadyBlocked ? 0.5 : 2) + indexBonus[target];
+  const numericalValue = (isTargetAlreadyBlocked ? 0 : 2) + indexBonus[target];
   return isSaboteur ? numericalValue : -numericalValue;
 }
 
-const getValueForBuild = (card, j, isSaboteur) => {
+const getValueForBuild = (card, j, isSaboteur, board) => {
   let value = 0;
 
   if (card.inUp) {
@@ -1078,21 +1264,109 @@ const getValueForBuild = (card, j, isSaboteur) => {
   if (card.inDown) {
     value += 0.1;
   }
-  if (card.inLeft) {
-    value += 0.1;
-  }
-  if (card.inRight) {
-    value += 0.1;
-  }
+  // if (card.inLeft) {
+  //   value += 0.1;
+  // }
+  // if (card.inRight) {
+  //   value += 0.1;
+  // }
 
-  if (isDeadEndCard(card.type) && j <= 5 && isSaboteur) {
-    value += 5;
-  }
+  // if (isDeadEndCard(card.type) && j >= 2 && j <= 5 && isSaboteur && !isFourthColumnReached(board)) {
+  //   value += j;
+  // }
 
   return value;
 }
 
-const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, onlyBuilds) => {
+const getCardsDescriptions = (card) => {
+  let descriptions = [];
+  for (let i = 0; i < card.length; ++i) {
+    if (card[i].type === 0) {
+        descriptions.push('┼');
+      }
+      if (card[i].type === 1) {
+        descriptions.push('┴');
+      }
+      if (card[i].type === 2) {
+        descriptions.push('┤');
+      }
+      if (card[i].type === 12) {
+        descriptions.push('┘');
+      }
+      if (card[i].type === 3) {
+        descriptions.push('│');
+      }
+      if (card[i].type === 4) {
+        descriptions.push('¡');
+      }
+      if (card[i].type === 5) {
+        descriptions.push('║');
+      }
+      if (card[i].type === 6) {
+        descriptions.push('╬');
+      }
+      if (card[i].type=== 7) {
+        descriptions.push('╩');
+      }
+      if (card[i].type === 8) {
+        descriptions.push('═');
+      }
+      if (card[i].type === 9) {
+        descriptions.push('─');
+      }
+      if (card[i].type === 10) {
+        descriptions.push('»');
+      }
+      if (card[i].type === 11) {
+        descriptions.push('╚');
+      }
+      if (card[i].type === 13) {
+        descriptions.push('└');
+      }
+      if (card[i].type === 14) {
+        descriptions.push('╣');
+      }
+      if (card[i].type === 15) {
+        descriptions.push('╝');
+      }
+      if (card[i].type === 16) {
+        descriptions.push('map');
+      }
+      if (card[i].type === 17) {
+        descriptions.push('rockfall');
+      }
+      if (card[i].type === 18) {
+        descriptions.push('break_pickaxe');
+      }
+      if (card[i].type === 19) {
+        descriptions.push('break_truck');
+      }
+      if (card[i].type === 20) {
+        descriptions.push('break_lamp');
+      }
+      if (card[i].type === 21) {
+        descriptions.push('fix_pickaxe');
+      }
+      if (card[i].type === 22) {
+        descriptions.push('fix_truck');
+      }
+      if (card[i].type === 23) {
+        descriptions.push('fix_lamp');
+      }
+      if (card[i].type === 24) {
+        descriptions.push('fix_truck_lamp');
+      }
+      if (card[i].type === 25) {
+        descriptions.push('fix_pickaxe_truck');
+      }
+      if (card[i].type === 26) {
+        descriptions.push('fix_pickaxe_lamp');
+      }
+  }
+  return descriptions;
+}
+
+const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, onlyBuilds, considerThrowingAway) => {
   const cardsInHand = playersData[playerIndex].cards;
   const isSaboteur = playersData[playerIndex].role === 1;
   const propabilities = calculateTargetsPropabilities(playersData, playerIndex, maxSaboteurs);
@@ -1110,9 +1384,7 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
   const goldMiddleProb = propabilities[1];
   const goldBottomProb = propabilities[2];
   let currentEvaluation = evaluateBoard(board, goldTopProb, goldMiddleProb, goldBottomProb);
-  let cardOutcomes = [];
   for (let a = 0; a < cardsInHand.length; ++a) {
-    cardOutcomes = [];
     if (cardsInHand[a].special === 'map' && !onlyBuilds) {
       if (isGoldKnown(knowledge)) {
         let clonedPlayersData = clonePlayersData(playersData);
@@ -1126,7 +1398,7 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
           cardIndex: a,
           operation: 'throwaway',
           playersData: clonedPlayersData,
-          description: 'Discarding a card.'
+          description: 'Discarding a card. CCC' + getCardsDescriptions([cardsInHand[a]])
         })
       } else {
         const { knowledge: obtainedKnowledge, target: obtainedTarget } = useMap(board, [...knowledge], [...propabilities]);
@@ -1306,14 +1578,16 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
 
               updateKarmas(clonedPlayersData, playerIndex, 'build', cardsInHand[a].type, maxSaboteurs, board, clone, null);
 
-              cardOutcomes.push({
-                value: value + getValueForBuild(cardsInHand[a], j, isSaboteur),
-                cardIndex: a,
-                board: clone,
-                playersData: clonedPlayersData,
-                operation: 'build',
-                description: 'Building a card on (' + i + ', ' + j + ').'
-              })
+              if (isSaboteur || !isDeadEndCard(cardsInHand[a].type)) {
+                outcomes.push({
+                  value: value + getValueForBuild(cardsInHand[a], j, isSaboteur, clone),
+                  cardIndex: a,
+                  board: clone,
+                  playersData: clonedPlayersData,
+                  operation: 'build',
+                  description: 'Building a card on (' + i + ', ' + j + ').'
+                })
+              }
             }
 
             if (flipped) {
@@ -1331,74 +1605,79 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
 
                 updateKarmas(clonedPlayersData, playerIndex, 'build', cardsInHand[a].type, maxSaboteurs, board, clone, null);
 
-                cardOutcomes.push({
-                  value: value + getValueForBuild(cardsInHand[a], j, isSaboteur),
-                  cardIndex: a,
-                  playersData: clonedPlayersData,
-                  board: clone,
-                  cardType: cardsInHand[a].type,
-                  operation: 'build',
-                  description: 'Building a card on (' + i + ', ' + j + ').'
-                })
+                if (isSaboteur || !isDeadEndCard(flipped.type)) {
+                  outcomes.push({
+                    value: value + getValueForBuild(cardsInHand[a], j, isSaboteur, clone),
+                    cardIndex: a,
+                    playersData: clonedPlayersData,
+                    board: clone,
+                    cardType: cardsInHand[a].type,
+                    operation: 'build',
+                    description: 'Building a card on (' + i + ', ' + j + ').'
+                  })
+                }
               }
             }
           } 
         }
       }
 
-      if (cardOutcomes.length > 0) {
-        if (onlyBuilds) {
-          outcomes = [...outcomes, ...cardOutcomes]
-        } else {
-          const usefulMoveIndx = cardOutcomes.findIndex((el) => {
-            return isSaboteur ? (el.value > currentEvaluation) : (el.value < currentEvaluation);
-          })
+      // if (cardOutcomes.length > 0) {
+      //   if (onlyBuilds) {
+      //     outcomes = [...outcomes, ...cardOutcomes]
+      //   } else {
+      //     const usefulMoveIndx = cardOutcomes.findIndex((el) => {
+      //       return isSaboteur ? (el.value > currentEvaluation) : (el.value < currentEvaluation);
+      //     })
 
-          if (usefulMoveIndx !== -1) {
-            outcomes = [...outcomes, ...cardOutcomes];
-          } 
-          if (usefulMoveIndx === -1 || playersData[playerIndex].strategy === 'saboteur_passive') {
-            clonedPlayersData = clonePlayersData(playersData);
-            clonedPlayersData[playerIndex].cards.splice(a, 1);
-            updateKarmas(clonedPlayersData, playerIndex, 'throwaway', null, maxSaboteurs, null, null, null);
+      //     if (usefulMoveIndx !== -1) {
+      //       outcomes = [...outcomes, ...cardOutcomes];
+      //     } 
+      //     if (usefulMoveIndx === -1 || playersData[playerIndex].strategy === 'saboteur_passive') {
+      //       clonedPlayersData = clonePlayersData(playersData);
+      //       clonedPlayersData[playerIndex].cards.splice(a, 1);
+      //       updateKarmas(clonedPlayersData, playerIndex, 'throwaway', null, maxSaboteurs, null, null, null);
 
-            outcomes.push({
-              value: currentEvaluation - 0.01,
-              board,
-              playersData: clonedPlayersData,
-              cardIndex: a,
-              operation: 'throwaway',
-              description: 'Discarding a card.'
-            });
-          }
-        }
-      }
+      //       if (cardsInHand[a].type !== 17) {
+      //         outcomes.push({
+      //           value: currentEvaluation - 0.01,
+      //           board,
+      //           playersData: clonedPlayersData,
+      //           cardIndex: a,
+      //           operation: 'throwaway',
+      //           description: 'Discarding a card. ' + getCardsDescriptions([cardsInHand[a]])
+      //         });
+      //       }
+      //     }
+      //   }
+      // }
     }
   }
 
-  if (outcomes.length === 0 && !onlyBuilds) {
+  if ((considerThrowingAway || outcomes.length === 0) && !onlyBuilds) {
     let relativeCardValues = [];
     for (let i = 0; i < cardsInHand.length; ++i) {
-      if (cardsInHand[i].type >= 21) { // fix
-        relativeCardValues[i] = { value: isSaboteur ? -3 : 4, index: i };
-      } else if (cardsInHand[i].type >= 18 && cardsInHand[i].type <= 20) { // break
-        relativeCardValues[i] = { value: isSaboteur ? -4 : 5, index: i };
-      } else if (cardsInHand[i].type === 17) { // rockfall
-        relativeCardValues[i] = { value: isSaboteur ? -9999 : 9999, index: i };
-      } else {
-        if (cardsInHand[i].flippable) {
-          const flip = flipCard({...cardsInHand[i]});
-          const mainObject = { value: (cardsInHand[i].outUp ? 1 : 0) + (cardsInHand[i].outRight ? 2.01 : 0) + (cardsInHand[i].outLeft ? 1 : 0) + (cardsInHand[i].outDown ? 1 : 0), index: i };
-          const flipObject = { value: (flip.outUp ? 1 : 0) + (flip.outRight ? 2.01 : 0) + (flip.outLeft ? 1 : 0) + (flip.outDown ? 1 : 0), index: i };
-          if (isSaboteur) {
-            relativeCardValues[i] = flipObject.value < mainObject.value ? flipObject : mainObject;
-          } else {
-            relativeCardValues[i] = flipObject.value > mainObject.value ? flipObject : mainObject;
-          }
-        } else {
-          relativeCardValues[i] = { value: (cardsInHand[i].outUp ? 1 : 0) + (cardsInHand[i].outRight ? 2.01 : 0) + (cardsInHand[i].outLeft ? 1 : 0) + (cardsInHand[i].outDown ? 1 : 0), index: i };
-        }
-      }
+      relativeCardValues[i] = getRelativeCardValue(cardsInHand[i], isSaboteur);
+      // if (cardsInHand[i].type >= 21) { // fix
+      //   relativeCardValues[i] = { value: isSaboteur ? -3 : 4, index: i };
+      // } else if (cardsInHand[i].type >= 18 && cardsInHand[i].type <= 20) { // break
+      //   relativeCardValues[i] = { value: isSaboteur ? -4 : 5, index: i };
+      // } else if (cardsInHand[i].type === 17) { // rockfall
+      //   relativeCardValues[i] = { value: 0, index: i }; // it cant be discarded anyway
+      // } else {
+      //   if (cardsInHand[i].flippable) {
+      //     const flip = flipCard({...cardsInHand[i]});
+      //     const mainObject = { value: (cardsInHand[i].outUp ? 1 : 0) + (cardsInHand[i].outRight ? 2.01 : 0) + (cardsInHand[i].outLeft ? 1.01 : 0) + (cardsInHand[i].outDown ? 1 : 0), index: i };
+      //     const flipObject = { value: (flip.outUp ? 1 : 0) + (flip.outRight ? 2.01 : 0) + (flip.outLeft ? 1.01 : 0) + (flip.outDown ? 1 : 0), index: i };
+      //     if (isSaboteur) {
+      //       relativeCardValues[i] = flipObject.value < mainObject.value ? flipObject : mainObject;
+      //     } else {
+      //       relativeCardValues[i] = flipObject.value > mainObject.value ? flipObject : mainObject;
+      //     }
+      //   } else {
+      //     relativeCardValues[i] = { value: (cardsInHand[i].outUp ? 1 : 0) + (cardsInHand[i].outRight ? 2.01 : 0) + (cardsInHand[i].outLeft ? 1.01 : 0) + (cardsInHand[i].outDown ? 1 : 0), index: i };
+      //   }
+      // }
     }
 
     relativeCardValues.sort((a, b) => {
@@ -1417,15 +1696,90 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
 
       updateKarmas(clonedPlayersData, playerIndex, 'throwaway', null, maxSaboteurs, null, null, null);
 
-      outcomes.push({
-        value: currentEvaluation + relativeCardValues[i],
-        board,
-        playersData: clonedPlayersData,
-        cardIndex: i,
-        operation: 'throwaway',
-        description: 'Discarding a card.'
-      })
+      if (cardsInHand[i].type !== 17) {
+        // console.log({
+        //   value: currentEvaluation + relativeCardValues[i],
+        //   cardIndex: i,
+        //   operation: 'throwaway',
+        //   description: 'Discarding a card. ' + getCardsDescriptions([cardsInHand[i]])
+        // });
+
+        outcomes.push({
+          value: currentEvaluation + relativeCardValues[i],
+          board,
+          playersData: clonedPlayersData,
+          cardIndex: i,
+          operation: 'throwaway',
+          description: 'Discarding a card AAA. ' + getCardsDescriptions([cardsInHand[i]])
+        })
+      }
     }
+  }
+
+  if (outcomes.length > 0 && !isSaboteur && !isPlayerBlocked(playersData, playerIndex)) {
+    console.log('IS PLAYER BLOCKED');
+    console.log(!isPlayerBlocked(playersData, playerIndex));
+    const buildOutcomes = outcomes.filter((el) => el.operation === 'build');
+    buildOutcomes.sort((a, b) => {
+      if (a.value > b.value) {
+        return 1;
+      }
+      if (b.value > a.value) {
+        return -1;
+      }
+      return 0;
+    })
+    if (buildOutcomes[0] && buildOutcomes[0].value >= currentEvaluation) {
+      console.log('LOOKING FOR WORKAROUND');
+      console.log('LOOKING FOR WORKAROUND');
+      console.log('LOOKING FOR WORKAROUND');
+      console.log('LOOKING FOR WORKAROUND');
+      console.log('LOOKING FOR WORKAROUND');
+      console.log('LOOKING FOR WORKAROUND');
+      console.log('LOOKING FOR WORKAROUND');
+      console.log('LOOKING FOR WORKAROUND');
+      console.log('LOOKING FOR WORKAROUND');
+      console.log('LOOKING FOR WORKAROUND');
+      console.log('LOOKING FOR WORKAROUND');
+      console.log('LOOKING FOR WORKAROUND');
+      let workaroundMove = findShortestPath(board, cardsInHand, [goldTopProb, goldMiddleProb, goldBottomProb], currentEvaluation);
+      if (workaroundMove) {
+        const foundCardIndex = cardsInHand.findIndex((el) => el.type === workaroundMove.cardType);
+        clone = cloneBoard(board);
+        buildCard(clone, workaroundMove.flipped ? flipCard({...cardsInHand[foundCardIndex]}) : cardsInHand[foundCardIndex], workaroundMove.i, workaroundMove.j);
+
+        let clonedPlayersData = clonePlayersData(playersData);
+        clonedPlayersData[playerIndex].cards.splice(foundCardIndex, 1);
+
+        updateKarmas(clonedPlayersData, playerIndex, 'build', cardsInHand[foundCardIndex].type, maxSaboteurs, board, clone, null);
+
+        outcomes.push({
+          value: currentEvaluation - 1,
+          cardIndex: foundCardIndex,
+          playersData: clonedPlayersData,
+          board: clone,
+          cardType: cardsInHand[foundCardIndex].type,
+          operation: 'build',
+          description: 'Building a card on (' + workaroundMove.i + ', ' + workaroundMove.j + ').'
+        })
+      } else {
+        outcomes.filter((el) => el.operation !== 'build');
+      }
+    }
+  }
+
+  if (outcomes.length === 0) {
+    const clonedPlayersData = clonePlayersData(playersData);
+    clonedPlayersData[playerIndex].cards.splice(0, 1);
+
+    outcomes.push({
+      value: currentEvaluation,
+      board,
+      playersData: clonedPlayersData,
+      cardIndex: 0,
+      operation: 'throwaway',
+      description: 'Discarding a card. BBB ' + getCardsDescriptions([cardsInHand[0]])
+    })
   }
 
   outcomes.sort((a, b) => {
@@ -1441,7 +1795,7 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
   return outcomes;
 }
 
-const evaluateBoard = (board, goldTopProb, goldMiddleProb, goldBottomProb) => {
+const evaluateBoard = (board, goldTopProb, goldMiddleProb, goldBottomProb, useFinalEvaluation) => {
   const copyBoard = cloneBoard(board);
 
   let topArray = [9999];
@@ -1497,7 +1851,7 @@ const evaluateBoard = (board, goldTopProb, goldMiddleProb, goldBottomProb) => {
   const minTargetBottom = Math.min.apply(null, bottomArray);
 
   let finalEvaluation = goldTopProb * topArray[0] + goldMiddleProb * middleArray[0] + goldBottomProb * bottomArray[0];
-  if (finalEvaluation <= 2) {
+  if (finalEvaluation <= 4 || useFinalEvaluation) {
     return finalEvaluation;
   }
 
@@ -1672,11 +2026,11 @@ const updateKarmas = (playersData, playerIndex, operation, cardType, maxSaboteur
       if (isDeadEndCard(cardType)) {
         playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, 100, maxSaboteurs);
       } else if (newEval < currentEval) {
-        playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] - 10, maxSaboteurs);
+        playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] - 20, maxSaboteurs);
       } else if (newEval > currentEval) {
         playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, 100, maxSaboteurs);
       } else if (newEval === currentEval) {
-        playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] + 10, maxSaboteurs);
+        playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] + 20, maxSaboteurs);
       }
 
     }
@@ -1704,10 +2058,6 @@ const updateKarmas = (playersData, playerIndex, operation, cardType, maxSaboteur
         } else if (playersData[i].karmas[operationTarget] === 100) {
           playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, 0, maxSaboteurs);
         }
-        // } else {
-        //   const newValue = playersData[i].karmas[playerIndex] + 100 - playersData[i].karmas[operationTarget];
-        //   playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, newValue > 80 ? 80 : newValue, maxSaboteurs);
-        // }
     }
   } else if (operation === 'fix') {
     for (let i = 0; i < playersData.length; ++i) {
@@ -1717,11 +2067,11 @@ const updateKarmas = (playersData, playerIndex, operation, cardType, maxSaboteur
         } else if (playersData[i].karmas[operationTarget] === 100) {
           playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, 100, maxSaboteurs);
         }
-        // } else {
-        //   const newValue = playersData[i].karmas[playerIndex] - 100 + playersData[i].karmas[operationTarget];
-        //   playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, newValue < 20 ? 20 : newValue, maxSaboteurs);
-        // }
       }
+    }
+  } else if (operation === 'throwaway') {
+    for (let i = 0; i < playersData.length; ++i) {
+      playersData[i].karmas = updateKarmasValues(playersData[i].karmas, playerIndex, playersData[i].karmas[playerIndex] + 5, maxSaboteurs);
     }
   }
 }
@@ -1840,6 +2190,14 @@ const finalReveal = (playersInfo, board, showTargets) => {
   }
 }
 
+const anyCardsLeft = (playersData) => {
+  let sum = 0;
+  for (let i = 0; i < playersData.length; ++i) {
+    sum += playersData[i].cards.length;
+  }
+  return sum > 0;
+}
+
 module.exports = { 
   boardPiece, 
   cloneBoard, 
@@ -1875,4 +2233,8 @@ module.exports = {
   getInitialStrategy,
   getBestMove,
   targets,
+  findShortestPath,
+  flattenNodesTree,
+  anyCardsLeft,
+  getCardsDescriptions,
 }

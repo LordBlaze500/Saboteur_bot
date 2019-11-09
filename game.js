@@ -37,6 +37,10 @@ const {
   getInitialStrategy,
   getBestMove,
   targets,
+  findShortestPath,
+  flattenNodesTree,
+  anyCardsLeft,
+  getCardsDescriptions,
 } = require('./utils');
 
 let board = prepareBoard();
@@ -44,8 +48,18 @@ let board = prepareBoard();
 const shuffled = shuffle([...deck]);
 
 const playersNo = 5;
-const maxSaboteurs = getMaxSaboteurs(5);
-const roles = shuffle(playersConfigs[playersNo]); 
+const maxSaboteurs = getMaxSaboteurs(playersNo);
+const roles = shuffle(playersConfigs[playersNo]);
+
+const getCardsForPlayer = (shuffled, playersNo) => {
+  if (playersNo <= 5) {
+    return [shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop()];
+  }
+  if (playersNo <= 7) {
+    return [shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop()];
+  }
+  return [shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop()];
+}
 
 let playersData = [];
 for (let i = 0; i < playersNo; ++i) {
@@ -56,7 +70,7 @@ for (let i = 0; i < playersNo; ++i) {
     pickaxe: true,
     truck: true,
     lamp: true,
-    cards: [shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop()],
+    cards: getCardsForPlayer(shuffled, playersNo),
     karmas: initiateKarmas(playersNo, roles[i], maxSaboteurs, i, playersConfigs[playersNo]),
     claims: getClaimsArray(playersNo),
     targetsKnowledge: [0, 0, 0],
@@ -78,95 +92,7 @@ let saboteurNo = 1;
 let diggerNo = 1;
 let operationTarget = null;
 
-const getCardsDescriptions = (card) => {
-  let descriptions = [];
-  for (let i = 0; i < card.length; ++i) {
-    if (card[i].type === 0) {
-        descriptions.push('┼');
-      }
-      if (card[i].type === 1) {
-        descriptions.push('┴');
-      }
-      if (card[i].type === 2) {
-        descriptions.push('┤');
-      }
-      if (card[i].type === 12) {
-        descriptions.push('┘');
-      }
-      if (card[i].type === 3) {
-        descriptions.push('│');
-      }
-      if (card[i].type === 4) {
-        descriptions.push('¡');
-      }
-      if (card[i].type === 5) {
-        descriptions.push('║');
-      }
-      if (card[i].type === 6) {
-        descriptions.push('╬');
-      }
-      if (card[i].type=== 7) {
-        descriptions.push('╩');
-      }
-      if (card[i].type === 8) {
-        descriptions.push('═');
-      }
-      if (card[i].type === 9) {
-        descriptions.push('─');
-      }
-      if (card[i].type === 10) {
-        descriptions.push('»');
-      }
-      if (card[i].type === 11) {
-        descriptions.push('╚');
-      }
-      if (card[i].type === 13) {
-        descriptions.push('└');
-      }
-      if (card[i].type === 14) {
-        descriptions.push('╣');
-      }
-      if (card[i].type === 15) {
-        descriptions.push('╝');
-      }
-      if (card[i].type === 16) {
-        descriptions.push('map');
-      }
-      if (card[i].type === 17) {
-        descriptions.push('rockfall');
-      }
-      if (card[i].type === 18) {
-        descriptions.push('break_pickaxe');
-      }
-      if (card[i].type === 19) {
-        descriptions.push('break_truck');
-      }
-      if (card[i].type === 20) {
-        descriptions.push('break_lamp');
-      }
-      if (card[i].type === 21) {
-        descriptions.push('fix_pickaxe');
-      }
-      if (card[i].type === 22) {
-        descriptions.push('fix_truck');
-      }
-      if (card[i].type === 23) {
-        descriptions.push('fix_lamp');
-      }
-      if (card[i].type === 24) {
-        descriptions.push('fix_truck_lamp');
-      }
-      if (card[i].type === 25) {
-        descriptions.push('fix_pickaxe_truck');
-      }
-      if (card[i].type === 26) {
-        descriptions.push('fix_pickaxe_lamp');
-      }
-  }
-  return descriptions;
-}
-
-while (playersData[playersNo - 1].cards.length > 0) {
+while (anyCardsLeft(playersData)) {
 
   operationTarget = null;
 
@@ -182,6 +108,11 @@ while (playersData[playersNo - 1].cards.length > 0) {
     console.log('Player ' + (i + 1) + ', "' + playersData[i].name + '"');
 
     console.log('Pickaxe: ' + playersData[i].pickaxe + ', truck: ' + playersData[i].truck + ', lamp: ' + playersData[i].lamp);
+
+    if (!playersData[i].cards.length) {
+      console.log('I don\'t have any cards');
+      continue;
+    }
 
     console.log(getCardsDescriptions(playersData[i].cards));
 
