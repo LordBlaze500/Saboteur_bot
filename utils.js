@@ -1,8 +1,8 @@
 const { deck } = require('./deck');
 const { graphBoard } = require('./graphBoard');
 const fs = require('fs');
+const { debug, consoleSpam } = require('./debugVars');
 
-const debug = false;
 let debugTurn = 1;
 let debugPlayer = 1;
 
@@ -1156,11 +1156,15 @@ const getBestMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) => {
   possibleEndInitialStrategy(playersData, playerIndex, board, maxSaboteurs);
   if (!areRolesClear(playersData, playerIndex)) {
     moves = initialStrategyMoves(playersData, playerIndex, maxSaboteurs, board, turnNo);
-    consoleThinkingLines(moves);
+    if (consoleSpam) {
+      consoleThinkingLines(moves);
+    }
     return moves[0];
   } else { // middle-game
     moves = calculateMovesDeepValue(playersData, playerIndex, maxSaboteurs, board, false, false);
-    consoleThinkingLines(moves);
+    if (consoleSpam) {
+      consoleThinkingLines(moves);
+    }
     if (debug) {
       const ccc = calculateMovesDeepValue(playersData, playerIndex, maxSaboteurs, board, false, false).map((el) => ({...el, board: null, playersData: null}));
       fs.writeFileSync('turn_' + debugTurn + '_' + debugPlayer + '.txt', JSON.stringify(ccc, null, 2), 'utf-8');
@@ -1267,8 +1271,11 @@ const chatMessage = (playersData, playerIndex, message) => {
 
 // extract all card types from deck and code (start & targets) to cardTypes.js
 
-// ASK FOR CARDS, OTHERSCARDS KNOWLEDGE, GOODS -> getShortestPAth, EVILS -> kogo blokowac
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+// if the highest possible build, value income < 0.5 -> CAN YOU BUILD FORWARD?
 // zdradzaj lub nie zdradzaj karty na podstawie tego ile wrogowie maja blokow i czy masz self-sufficient karty
+// LEAVE BUILDING TO ME
+// DO NOT BUILD IF OTHERS REVEALED SELF-SUFFICIENT CARDS
 
 // REWRITE KARMAS TO -1 0 1
 
@@ -1601,7 +1608,7 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
           cardIndex: a,
           operation: 'throwaway',
           playersData: clonedPlayersData,
-          description: 'Discarding a card. (' + getCardsDescriptions([cardsInHand[a]]) + ')'
+          description: 'Discarding a card. ' + (consoleSpam ? '(' + getCardsDescriptions([cardsInHand[a]]) + ')' : '')
         })
       } else {
         const { knowledge: obtainedKnowledge, target: obtainedTarget } = useMap(board, [...knowledge], [...propabilities]);
@@ -1987,7 +1994,7 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
           playersData: clonedPlayersData,
           cardIndex: i,
           operation: 'throwaway',
-          description: 'Discarding a card. (' + getCardsDescriptions([cardsInHand[i]]) + ')'
+          description: 'Discarding a card. ' + (consoleSpam ? '(' + getCardsDescriptions([cardsInHand[i]]) + ')' : '')
         })
       }
     }
@@ -2003,7 +2010,7 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
       playersData: clonedPlayersData,
       cardIndex: 0,
       operation: 'throwaway',
-      description: 'Discarding a card. (' + getCardsDescriptions([cardsInHand[0]]) + ')'
+      description: 'Discarding a card. ' + (consoleSpam ? '(' + getCardsDescriptions([cardsInHand[0]]) + ')' : '')
     })
   }
 

@@ -45,6 +45,7 @@ const {
   chatMessage,
   getCardsDescriptions,
 } = require('./utils');
+const { consoleSpam } = require('./debugVars');
 
 let board = prepareBoard();
 
@@ -75,7 +76,9 @@ for (let i = 0; i < playersNo; ++i) {
 for (let i = 0; i < playersNo; ++i) {
   playersData[i].cardsAmountsInGame = initiateCardsAmounts(playersData[i].cards);
   playersData[i].strategy = getInitialStrategy(playersData, i);
-  console.log(playersData[i].strategy);
+  if (consoleSpam) {
+    console.log(playersData[i].strategy);
+  }
 }
 
 let turnNo = 1;
@@ -93,12 +96,10 @@ while (anyCardsLeft(playersData)) {
   console.log(' ');
   console.log('TURN ' + turnNo);
   console.log('Cards in deck: ' + shuffled.length);
-  console.log(' ');
   saboteurNo = 1;
   diggerNo = 1;
   for (let i = 0; i < playersNo; ++i) {
-    // console.log(' ');
-    // console.log((playersData[i].role === 1 ? 'Saboteur ' + saboteurNo++  : 'Digger ' + diggerNo++) + ', player ' + (i + 1));
+    console.log(' ');
     console.log('Player ' + (i + 1) + ', "' + playersData[i].name + '"');
 
     console.log('Pickaxe: ' + playersData[i].pickaxe + ', truck: ' + playersData[i].truck + ', lamp: ' + playersData[i].lamp);
@@ -108,7 +109,9 @@ while (anyCardsLeft(playersData)) {
       continue;
     }
 
-    console.log(getCardsDescriptions(playersData[i].cards));
+    if (consoleSpam) {
+      console.log(getCardsDescriptions(playersData[i].cards));
+    }
 
     move = getBestMove(playersData, i, maxSaboteurs, board, turnNo);
     oldBoard = cloneBoard(board);
@@ -118,8 +121,10 @@ while (anyCardsLeft(playersData)) {
 
     console.log(move.description);
 
-    console.log('PROBABILITIEs');
-    console.log(calculateTargetsPropabilities(playersData, i, maxSaboteurs));
+    if (consoleSpam) {
+      console.log('PROBABILITIEs');
+      console.log(calculateTargetsPropabilities(playersData, i, maxSaboteurs));
+    }
 
     // console.log('CLAIMS');
     // for (let i = 0; i < playersData.length; ++i) {
@@ -129,9 +134,11 @@ while (anyCardsLeft(playersData)) {
     checkTargets(board, move.i, move.j, playersData);
     
     graphBoard(board);
-    console.log('KARMAS');
-    for (let i = 0; i < playersNo; ++i) {
-      console.log(playersData[i].karmas);
+    if (consoleSpam) {
+      console.log('KARMAS');
+      for (let i = 0; i < playersNo; ++i) {
+        console.log(playersData[i].karmas);
+      }
     }
 
     if (shuffled.length > 0) {
