@@ -1,6 +1,7 @@
 const graphBoard = (board) => {
+  console.log('/0123456789ABCD');
   for (let i = 0; i < board.length; ++i) {
-    let row = '';
+    let row = i.toString(16).toUpperCase();
     for (let j = 0; j < board[i].length; ++j) {
       if (board[i][j].cardType === -1) {
         if (board[i][j].buildable && board[i][j].accessible) {
@@ -9,15 +10,6 @@ const graphBoard = (board) => {
         else {
           row += '░';
         }
-        // if (board[i][j].buildable && !board[i][j].accessible) {
-        //   row += 'B';
-        // }
-        // if (!board[i][j].buildable && board[i][j].accessible) {
-        //   row += 'A';
-        // } 
-        // if (!board[i][j].buildable && !board[i][j].accessible) {
-        //   row += '░';
-        // } 
       }
       if (board[i][j].special === 'start') {
         row += '╬';

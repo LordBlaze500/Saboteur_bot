@@ -40,6 +40,7 @@ const {
   findShortestPath,
   flattenNodesTree,
   anyCardsLeft,
+  chatMessage,
   getCardsDescriptions,
 } = require('./utils');
 
@@ -110,7 +111,7 @@ while (anyCardsLeft(playersData)) {
     console.log('Pickaxe: ' + playersData[i].pickaxe + ', truck: ' + playersData[i].truck + ', lamp: ' + playersData[i].lamp);
 
     if (!playersData[i].cards.length) {
-      console.log('I don\'t have any cards');
+      chatMessage(playersData, i, 'I don\'t have any cards.')
       continue;
     }
 

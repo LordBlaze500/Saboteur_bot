@@ -15,6 +15,7 @@ FIXES
  - if no coals discovered, add two possibilities to consider when reaching coal
 
 NON-FEATURE TODOS
+ - massive ifs to switches
  - clean exports
  - remove unused arguments, outcomes.push parameters
  - 9999 / -9999 -> infinity / negative infinity
