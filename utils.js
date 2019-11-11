@@ -167,9 +167,16 @@ const checkConnections = (board, i, j) => {
 
 const canCardBeBuilt = (board, card, i, j) => {
   const clone = cloneBoard(board);
-  clone[3][10] = {...boardPiece};
-  clone[5][10] = {...boardPiece};
-  clone[7][10] = {...boardPiece};
+  if (clone[3][10].cardType < 0) {
+    clone[3][10] = {...boardPiece};
+  }
+  if (clone[5][10].cardType < 0) {
+    clone[5][10] = {...boardPiece};
+  }
+  if (clone[7][10].cardType < 0) {
+    clone[7][10] = {...boardPiece};
+  }
+
   if (clone[i][j].cardType !== -1 || clone[i][j].buildable !== true || clone[i][j].accessible !== true || card.type > 15) {
     return false;
   }
@@ -412,6 +419,25 @@ const targetToString = (target) => {
     return 'middle';
   }
   return 'bottom';
+}
+
+const prepareSaboteurAccuses = (playersLength) => {
+  const result = [];
+  result.length = playersLength;
+  for (let i = 0; i < playersLength; ++i) {
+    result[i] = 0;
+  }
+  return result;
+}
+
+const getCardsForPlayer = (shuffled, playersNo) => {
+  if (playersNo <= 5) {
+    return [shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop()];
+  }
+  if (playersNo <= 7) {
+    return [shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop()];
+  }
+  return [shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop()];
 }
 
 const findClaimsConflicts = (playersData, maxSaboteurs) => {
@@ -694,7 +720,7 @@ const calculateTargetsPropabilities = (playersData, playerIndex, maxSaboteurs) =
   }
 
   if (isNoClaimsMade(playersData[playerIndex].claims)) {
-    return [0.333, 0.333, 0.333];
+    return [0,1,0];
   } else {
     let knownTargetIndex = knowledge.findIndex((el) => el === -1);
     if (knownTargetIndex > -1) {
@@ -778,7 +804,8 @@ const clonePlayersData = (playersData) => {
       karmas: [...playersData[i].karmas],
       claims: cloneClaims(playersData[i].claims),
       targetsKnowledge: [...playersData[i].targetsKnowledge],
-      cardsAmountsInGame: {...playersData[i].cardsAmountsInGame}
+      cardsAmountsInGame: {...playersData[i].cardsAmountsInGame},
+      saboteurAccuses: [...playersData[i].saboteurAccuses],
     })
   }
   return clone;
@@ -880,7 +907,7 @@ const getRelativeCardValue = (card, isSaboteur) => {
   }
 }
 
-const initialStrategyMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) => {
+const initialStrategyMoves = (playersData, playerIndex, maxSaboteurs, board, turnNo) => {
   const strategy = playersData[playerIndex].strategy;
   const cards = playersData[playerIndex].cards;
   const propabilities = calculateTargetsPropabilities(playersData, playerIndex, maxSaboteurs);
@@ -1042,7 +1069,7 @@ const initialStrategyMove = (playersData, playerIndex, maxSaboteurs, board, turn
     }
   }
   
-  return possibleMoves[0];
+  return possibleMoves;
 }
 
 const getNextPlayerIndex = (playersLength, playerIndex) => {
@@ -1125,11 +1152,15 @@ const possibleEndInitialStrategy = (playersData, playerIndex, board, maxSaboteur
 }
 
 const getBestMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) => {
+  let moves = null;
   possibleEndInitialStrategy(playersData, playerIndex, board, maxSaboteurs);
-  if (!areRolesClear(playersData, playerIndex)) { // start
-    return initialStrategyMove(playersData, playerIndex, maxSaboteurs, board, turnNo);
+  if (!areRolesClear(playersData, playerIndex)) {
+    moves = initialStrategyMoves(playersData, playerIndex, maxSaboteurs, board, turnNo);
+    consoleThinkingLines(moves);
+    return moves[0];
   } else { // middle-game
-    const move = calculateMovesDeepValue(playersData, playerIndex, maxSaboteurs, board, false, false)[0];
+    moves = calculateMovesDeepValue(playersData, playerIndex, maxSaboteurs, board, false, false);
+    consoleThinkingLines(moves);
     if (debug) {
       const ccc = calculateMovesDeepValue(playersData, playerIndex, maxSaboteurs, board, false, false).map((el) => ({...el, board: null, playersData: null}));
       fs.writeFileSync('turn_' + debugTurn + '_' + debugPlayer + '.txt', JSON.stringify(ccc, null, 2), 'utf-8');
@@ -1140,14 +1171,14 @@ const getBestMove = (playersData, playerIndex, maxSaboteurs, board, turnNo) => {
         debugPlayer++;
       }
     }
-    if (move.operation === 'throwaway') {
-    removeCardFromCardsAmounts(move.playersData[playerIndex].cardsAmountsInGame, playersData[playerIndex].cards[move.cardIndex].type);
+    if (moves[0].operation === 'throwaway') {
+    removeCardFromCardsAmounts(moves[0].playersData[playerIndex].cardsAmountsInGame, playersData[playerIndex].cards[moves[0].cardIndex].type);
     } else {
       for (let i = 0; i < playersData.length; ++i) {
-        removeCardFromCardsAmounts(move.playersData[i].cardsAmountsInGame, playersData[playerIndex].cards[move.cardIndex].type);
+        removeCardFromCardsAmounts(moves[0].playersData[i].cardsAmountsInGame, playersData[playerIndex].cards[moves[0].cardIndex].type);
       }
     }
-    return move;
+    return moves[0];
   } 
 }
 
@@ -1206,8 +1237,6 @@ const chatMessage = (playersData, playerIndex, message) => {
 
 // OPTYMALIZACJA
 
-// extra value for reaching coal
-
 // I will build it / I will demolish it
 
 // announce lie - if a confirmed digger says, then mark liar as saboteur
@@ -1217,8 +1246,6 @@ const chatMessage = (playersData, playerIndex, message) => {
 // buduj useless karty jako saboteur w innym miejscu niz przy starcie
 
 // jesli deadend budowany w nieszkoldiwym meiscju to nie podbijaj karmy na 1
-
-// prefer straight over crosses when initial rows
 
 // healowanie NIE-SIEBIE mniej warte niz budowa / SHOULD I FIX YOU?
 
@@ -1235,10 +1262,6 @@ const chatMessage = (playersData, playerIndex, message) => {
 // BUILD TO WRONG TARGET STRATEGY
 
 // ADD PANIC DEADEND -> SHOULDFIXIMMEDIATELY NEXT TEAMMATE IF HE HAS DEADEND
-
-// finalEvaluation, druga wartosc matter ale w malutkim stopniu
-
-// DLA RUCHOW W OSTATNICH 2-3 KOLUMNACH UZYWAJ EWALUACJI FINAL, DLA POZOSTALYCH NORMALNEJ
 
 // saboteur_passive check others targets to find liars
 
@@ -1413,16 +1436,12 @@ const getValueForBuild = (card, j, isSaboteur, board) => {
   if (card.inDown) {
     value += 0.1;
   }
-  // if (card.inLeft) {
-  //   value += 0.1;
-  // }
-  // if (card.inRight) {
-  //   value += 0.1;
-  // }
-
-  // if (isDeadEndCard(card.type) && j >= 2 && j <= 5 && isSaboteur && !isFourthColumnReached(board)) {
-  //   value += j;
-  // }
+  if (card.isLeft) {
+    value += 0.01;
+  }
+  if (card.isRight) {
+    value += 0.01;
+  }
 
   return value;
 }
@@ -1611,7 +1630,7 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
             doRockFall(clone, i, j);
 
             const afterRockFallEvaluation = evaluateBoard(clone, goldTopProb, goldMiddleProb, goldBottomProb);
-            const isRockFallProper = isSaboteur ? (afterRockFallEvaluation > currentEvaluation && currentEvaluation <= 4 && !isDeadEndCard(board[i][j].cardType)) : afterRockFallEvaluation < currentEvaluation;
+            const isRockFallProper = isSaboteur ? (afterRockFallEvaluation > currentEvaluation && currentEvaluation <= 4 && !isDeadEndCard(board[i][j].cardType)) : afterRockFallEvaluation < currentEvaluation - 1.5;
 
             if (isRockFallProper) {
               let clonedPlayersData = clonePlayersData(playersData);
@@ -1620,7 +1639,7 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
               updateKarmas(clonedPlayersData, playerIndex, 'rockfall', 17, maxSaboteurs, board, clone);
 
               outcomes.push({
-                value: afterRockFallEvaluation + (isSaboteur ? getReplacementPossibility(playersData, playerIndex, board, i, j) : 1.5),
+                value: afterRockFallEvaluation + (isSaboteur ? getReplacementPossibility(playersData, playerIndex, board, i, j) : 0),
                 cardIndex: a,
                 board: clone,
                 operation: 'rockfall',
@@ -1653,7 +1672,6 @@ const calculateMovesDeepValue = (playersData, playerIndex, maxSaboteurs, board, 
         updateKarmas(clonedPlayersData, playerIndex, 'block', null, maxSaboteurs, null, null, possibleUses[i]);
 
         const blockExtra = getValueForBreak(playersData, playerIndex, possibleUses[i], isSaboteur);
-        // console.log("VALUE FOR BLOCK ", blockExtra, ' target; ', possibleUses[i]);
 
         if (isTargetOppositeTeam(playersData, playerIndex, possibleUses[i])) {
           outcomes.push({
@@ -2429,6 +2447,19 @@ const anyCardsLeft = (playersData) => {
   return sum > 0;
 }
 
+const consoleThinkingLines = (moves) => {
+  let longerThanFive = false;
+  const movesToConsole = moves.map((el) => ({ value: el.value, description: el.description }));
+  if (movesToConsole.length > 5) {
+    longerThanFive = true;
+    movesToConsole.length = 5;
+  }
+  console.log(movesToConsole);
+  if (longerThanFive) {
+    console.log('... and more moves');
+  }
+}
+
 module.exports = { 
   boardPiece, 
   cloneBoard, 
@@ -2468,5 +2499,7 @@ module.exports = {
   flattenNodesTree,
   anyCardsLeft,
   chatMessage,
+  prepareSaboteurAccuses,
+  getCardsForPlayer,
   getCardsDescriptions,
 }

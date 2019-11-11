@@ -40,6 +40,8 @@ const {
   findShortestPath,
   flattenNodesTree,
   anyCardsLeft,
+  prepareSaboteurAccuses,
+  getCardsForPlayer,
   chatMessage,
   getCardsDescriptions,
 } = require('./utils');
@@ -51,16 +53,6 @@ const shuffled = shuffle([...deck]);
 const playersNo = 5;
 const maxSaboteurs = getMaxSaboteurs(playersNo);
 const roles = shuffle(playersConfigs[playersNo]);
-
-const getCardsForPlayer = (shuffled, playersNo) => {
-  if (playersNo <= 5) {
-    return [shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop()];
-  }
-  if (playersNo <= 7) {
-    return [shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop()];
-  }
-  return [shuffled.pop(), shuffled.pop(), shuffled.pop(), shuffled.pop()];
-}
 
 let playersData = [];
 for (let i = 0; i < playersNo; ++i) {
@@ -76,6 +68,7 @@ for (let i = 0; i < playersNo; ++i) {
     claims: getClaimsArray(playersNo),
     targetsKnowledge: [0, 0, 0],
     cardsAmountsInGame: [],
+    saboteurAccuses: prepareSaboteurAccuses(playersNo),
   })
 }
 
